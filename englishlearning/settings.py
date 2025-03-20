@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     
     # 第三方应用
     'rest_framework',
+    'rest_framework.authtoken',
     'corsheaders',
     'django_filters',
     
@@ -141,6 +142,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # REST Framework设置
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',
     ),
