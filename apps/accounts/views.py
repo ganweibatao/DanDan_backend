@@ -6,6 +6,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login
 from .models import Teacher, Student
 from .serializers import UserSerializer, TeacherSerializer, StudentSerializer
+from rest_framework.permissions import IsAuthenticated
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -114,11 +115,31 @@ class TeacherViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """可以按用户过滤教师"""
-        queryset = Teacher.objects.all()
+        # 优化点1: 使用select_related预加载关联的user数据，减少数据库查询次数
+        queryset = Teacher.objects.select_related('user')
+        
         user_id = self.request.query_params.get('user_id')
         if user_id:
             queryset = queryset.filter(user_id=user_id)
         return queryset
+        
+    # 优化点3: 添加专门的端点获取教师的学生，比直接获取所有学生再过滤更高效
+    class IsTeacherOrAdmin(permissions.BasePermission):
+        def has_permission(self, request, view):
+            return request.user.is_staff or hasattr(request.user, 'teacher_profile')
+
+    # @action(detail=True, methods=['get'], permission_classes=[]) # 测试无权限
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated, IsTeacherOrAdmin])
+    def students(self, request, pk=None):
+        """获取指定教师的所有学生"""
+        teacher = self.get_object()
+        students = teacher.students.all()
+        page = self.paginate_queryset(students)
+        if page is not None:
+            serializer = StudentSerializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = StudentSerializer(students, many=True)
+        return Response(serializer.data)
 
 class StudentViewSet(viewsets.ModelViewSet):
     """

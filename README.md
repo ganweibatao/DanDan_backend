@@ -126,7 +126,6 @@ back_web/
    ```
    python -m venv venv
    source venv/bin/activate  # Linux/Mac
-   venv\Scripts\activate     # Windows
    ```
 3. 安装依赖
    ```
@@ -142,7 +141,7 @@ back_web/
    ```
 6. 运行开发服务器
    ```
-   cd back_web && source venv/bin/activate && python manage.py runserver 0.0.0.0:8000
+   python manage.py runserver 0.0.0.0:8000
    ```
 
 ## 管理员访问

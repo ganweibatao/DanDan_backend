@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework.documentation import include_docs_urls
+# from rest_framework.documentation import include_docs_urls
 
 # API版本
 API_PREFIX = 'api/v1/'
@@ -30,7 +30,7 @@ urlpatterns = [
     path('api-auth/', include('rest_framework.urls')),
     
     # API文档
-    path('docs/', include_docs_urls(title='English Learning API')),
+    # path('docs/', include_docs_urls(title='English Learning API')),
     
     # 应用API路由
     path(f'{API_PREFIX}accounts/', include('apps.accounts.urls')),
