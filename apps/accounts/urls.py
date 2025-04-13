@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import UserViewSet, TeacherViewSet, StudentViewSet
 
@@ -8,8 +8,7 @@ router.register('teachers', TeacherViewSet, basename='teacher')
 router.register('students', StudentViewSet, basename='student')
 
 urlpatterns = [
-    # 添加自定义URL路径
+    path('', include(router.urls)),
 ]
 
-# 添加路由器的URL
-urlpatterns += router.urls 
+# No need for: urlpatterns += router.urls 

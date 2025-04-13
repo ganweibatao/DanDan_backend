@@ -24,11 +24,10 @@ class TeacherSerializer(serializers.ModelSerializer):
 class StudentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
-    teacher_name = serializers.CharField(source='teacher.user.username', read_only=True)
     
     class Meta:
         model = Student
         fields = ['id', 'user', 'username', 'email', 'avatar', 'bio',
-                 'level', 'interests', 'learning_goal', 'teacher', 'teacher_name',
-                 'gender', 'created_at', 'updated_at']
+                 'level', 'personality_traits', 'learning_goal', 
+                 'gender', 'created_at', 'updated_at', 'age', 'province', 'city', 'grade', 'phone_number', 'learning_hours']
         read_only_fields = ['created_at', 'updated_at'] 

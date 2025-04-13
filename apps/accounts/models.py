@@ -43,8 +43,6 @@ class Teacher(Profile):
     university = models.CharField(max_length=200, blank=True)  # 毕业院校
     phone_number = models.CharField(max_length=20, blank=True)  # 电话号码
     id_number = models.CharField(max_length=18, blank=True)  # 身份证号
-    
-    # 新增字段
     teaching_years = models.PositiveIntegerField(default=0)  # 教学年限
     teaching_certificate = models.CharField(max_length=100, blank=True)  # 教师资格证编号
     education_level = models.CharField(max_length=50, choices=EDUCATION_LEVEL_CHOICES, blank=True)  # 最高学历
@@ -54,6 +52,10 @@ class Teacher(Profile):
     emergency_contact = models.CharField(max_length=100, blank=True)  # 紧急联系人
     emergency_contact_phone = models.CharField(max_length=20, blank=True)  # 紧急联系人电话
     english_level = models.CharField(max_length=50, choices=ENGLISH_LEVEL_CHOICES, blank=True)  # 英语水平
+    age = models.PositiveIntegerField(null=True, blank=True)  # 年龄
+    province = models.CharField(max_length=50, blank=True)  # 省份
+    city = models.CharField(max_length=50, blank=True)  # 城市
+    teaching_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='累计教学时长(小时)') # 教师累计教学时长（小时）
     
     def __str__(self):
         return f"Teacher: {self.user.username}"
@@ -73,12 +75,50 @@ class Student(Profile):
         ('proficient', '精通'),
     ]
     
+    GRADE_CHOICES = [
+        ('primary_1', '小学一年级'),
+        ('primary_2', '小学二年级'),
+        ('primary_3', '小学三年级'),
+        ('primary_4', '小学四年级'),
+        ('primary_5', '小学五年级'),
+        ('primary_6', '小学六年级'),
+        ('junior_1', '初中一年级'),
+        ('junior_2', '初中二年级'),
+        ('junior_3', '初中三年级'),
+        ('senior_1', '高中一年级'),
+        ('senior_2', '高中二年级'),
+        ('senior_3', '高中三年级'),
+        ('college_1', '大学一年级'),
+        ('college_2', '大学二年级'),
+        ('college_3', '大学三年级'),
+        ('college_4', '大学四年级'),
+        ('graduate', '研究生'),
+        ('other', '其他'),
+    ]
+    
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
     level = models.CharField(max_length=50, choices=ENGLISH_LEVEL_CHOICES, blank=True)  # 英语水平
-    interests = models.CharField(max_length=200, blank=True)  # 兴趣爱好
+    personality_traits = models.CharField(max_length=200, blank=True, verbose_name='性格特点')  # 性格特点
     learning_goal = models.TextField(blank=True)  # 学习目标
-    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='students')  # 关联的老师
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True)  # 性别
+    age = models.PositiveIntegerField(null=True, blank=True)  # 年龄
+    province = models.CharField(max_length=50, blank=True)  # 省份
+    city = models.CharField(max_length=50, blank=True)  # 城市
+    grade = models.CharField(max_length=20, choices=GRADE_CHOICES, blank=True)  # 年级
+    phone_number = models.CharField(max_length=20, blank=True, verbose_name='电话号码') # 学生电话号码
+    learning_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='累计学习时长(小时)') # 学生累计学习时长（小时）
     
     def __str__(self):
-        return f"Student: {self.user.username}" 
+        return f"Student: {self.user.username}"
+
+class StudentTeacherRelationship(models.Model):
+    """学生-教师关系表"""
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='teacher_relationships')
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='student_relationships')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['student', 'teacher']
+        
+    def __str__(self):
+        return f"{self.student.user.username} - {self.teacher.user.username}" 
