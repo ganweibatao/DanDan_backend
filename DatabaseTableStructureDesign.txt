@@ -1,0 +1,298 @@
+# 单词学习平台数据库设计文档
+
+## 文档说明
+本文档针对单词学习平台的需求，结合一对多关系、学习进度跟踪、艾宾浩斯遗忘曲线和用户自定义功能，提供完整的数据库表设计方案。
+
+---
+
+## 一、核心表设计
+
+### 1. 用户相关表
+
+#### 1.1 基础用户表（auth_user）
+```sql
+CREATE TABLE `auth_user` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '用户唯一标识符',
+  `username` varchar(150) NOT NULL UNIQUE COMMENT '用户名，必须唯一',
+  `password` varchar(128) NOT NULL COMMENT '用户密码',
+  `email` varchar(254) COMMENT '用户邮箱地址',
+  `first_name` varchar(150) COMMENT '用户的名',
+  `last_name` varchar(150) COMMENT '用户的姓',
+  `is_active` boolean NOT NULL COMMENT '用户是否活跃',
+  PRIMARY KEY (`id`)
+);
+```
+
+#### 1.2 教师信息表（accounts_teacher）
+```sql
+CREATE TABLE `accounts_teacher` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '教师表唯一标识符',
+  `user_id` int NOT NULL UNIQUE COMMENT '关联的用户ID，唯一',
+  `avatar` varchar(100) NULL COMMENT '教师头像的URL',
+  `bio` text COMMENT '教师的个人简介',
+  `created_at` datetime NOT NULL COMMENT '记录创建时间',
+  `updated_at` datetime NOT NULL COMMENT '记录更新时间',
+  `title` varchar(100) COMMENT '教师的职称',
+  `specialties` varchar(200) COMMENT '教师的专长领域',
+  `university` varchar(200) COMMENT '教师毕业的大学',
+  `phone_number` varchar(20) COMMENT '教师的电话号码',
+  `id_number` varchar(18) COMMENT '教师的身份证号',
+  `teaching_years` int UNSIGNED NOT NULL DEFAULT 0 COMMENT '教师的教学年限',
+  `teaching_certificate` varchar(100) COMMENT '教师资格证编号',
+  `education_level` varchar(50) CHECK (`education_level` IN ('bachelor', 'master', 'phd', 'other')) COMMENT '教师的最高学历',
+  `major` varchar(100) COMMENT '教师的专业方向',
+  `work_status` varchar(50) CHECK (`work_status` IN ('full_time', 'part_time', 'freelance')) COMMENT '教师的工作状态',
+  `available_time` text COMMENT '教师可授课的时间段',
+  `emergency_contact` varchar(100) COMMENT '紧急联系人的姓名',
+  `emergency_contact_phone` varchar(20) COMMENT '紧急联系人的电话',
+  `english_level` varchar(50) CHECK (`english_level` IN ('cet4', 'cet6', 'ielts', 'toefl', 'professional', 'native', 'other')) COMMENT '教师的英语水平',
+  `age` int UNSIGNED COMMENT '教师年龄',
+  `province` varchar(50) COMMENT '教师所在省份',
+  `city` varchar(50) COMMENT '教师所在城市',
+  `teaching_hours` decimal(10,2) DEFAULT 0.00 COMMENT '教师累计教学时长（小时）',
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE
+);
+```
+
+#### 1.3 学生信息表（accounts_student）
+```sql
+CREATE TABLE `accounts_student` (
+  `id` int NOT NULL AUTO_INCREMENT COMMENT '学生表唯一标识符',
+  `user_id` int NOT NULL UNIQUE COMMENT '关联的用户ID，唯一',
+  `avatar` varchar(100) NULL COMMENT '学生头像的URL',
+  `bio` text COMMENT '学生的个人简介',
+  `created_at` datetime NOT NULL COMMENT '记录创建时间',
+  `updated_at` datetime NOT NULL COMMENT '记录更新时间',
+  `phone_number` varchar(20) COMMENT '学生电话号码',
+  `learning_hours` decimal(10,2) DEFAULT 0.00 COMMENT '学生累计学习时长（小时）',
+  `level` varchar(50) CHECK (`level` IN ('beginner', 'intermediate', 'advanced', 'proficient')) COMMENT '学生的英语水平',
+  `personality_traits` varchar(200) COMMENT '学生的性格特点',
+  `learning_goal` text COMMENT '学生的学习目标',
+  `gender` varchar(10) CHECK (`gender` IN ('male', 'female', 'other')) COMMENT '学生的性别',
+  `age` int UNSIGNED COMMENT '学生年龄',
+  `province` varchar(50) COMMENT '学生所在省份',
+  `city` varchar(50) COMMENT '学生所在城市',
+  `grade` varchar(20) CHECK (`grade` IN ('primary_1', 'primary_2', 'primary_3', 'primary_4', 'primary_5', 'primary_6', 
+                                        'junior_1', 'junior_2', 'junior_3', 
+                                        'senior_1', 'senior_2', 'senior_3',
+                                        'college_1', 'college_2', 'college_3', 'college_4',
+                                        'graduate', 'other')) COMMENT '学生年级',
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`user_id`) REFERENCES `auth_user` (`id`) ON DELETE CASCADE
+);
+```
+
+**外键关系说明：**
+- accounts_teacher.user_id -> auth_user.id
+- accounts_student.user_id -> auth_user.id
+
+#### 1.4 学生-教师关系表 (student_teacher_relationship)
+```sql
+CREATE TABLE student_teacher_relationship (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT NOT NULL COMMENT '关联的学生ID',
+    teacher_id INT NOT NULL COMMENT '关联的教师ID',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '关系建立时间',
+    FOREIGN KEY (student_id) REFERENCES accounts_student(id) ON DELETE CASCADE,
+    FOREIGN KEY (teacher_id) REFERENCES accounts_teacher(id) ON DELETE CASCADE,
+    UNIQUE KEY (student_id, teacher_id) COMMENT '确保学生和老师之间的关系唯一'
+);
+```
+**外键关系说明 (新增):**
+- student_teacher_relationship.student_id -> accounts_student.id
+- student_teacher_relationship.teacher_id -> accounts_teacher.id
+
+### 2. 词汇与单词相关表
+
+#### 2.1 词汇书籍表（vocabulary_books）
+```sql
+CREATE TABLE vocabulary_books (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(100) NOT NULL COMMENT '书名',
+    word_count INT NOT NULL COMMENT '词汇量',
+    is_system_preset BOOLEAN DEFAULT false COMMENT '是否为系统预设书籍',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+```
+
+#### 2.2 单词基本信息表（word_basics）
+```sql
+CREATE TABLE word_basics (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    word VARCHAR(100) NOT NULL UNIQUE COMMENT '单词拼写',
+    phonetic_symbol VARCHAR(100) COMMENT '音标',
+    uk_pronunciation VARCHAR(255) COMMENT '英式发音URL',
+    us_pronunciation VARCHAR(255) COMMENT '美式发音URL',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_word (word) COMMENT '优化单词查询'
+);
+```
+
+#### 2.3 单词表（book_words）
+```sql
+CREATE TABLE book_words (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    vocabulary_book_id BIGINT NOT NULL COMMENT '关联的词汇书ID',
+    word_basic_id BIGINT NOT NULL COMMENT '关联的单词基本信息ID',
+    word_order INT NOT NULL COMMENT '单词在书中的顺序',
+    meanings JSON NOT NULL COMMENT '词性及中文释义JSON，格式：[{"pos":"n.","meaning":"名词释义"},{"pos":"v.","meaning":"动词释义"}]',
+    example_sentence TEXT COMMENT '例句',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (vocabulary_book_id) REFERENCES vocabulary_books(id),
+    FOREIGN KEY (word_basic_id) REFERENCES word_basics(id),
+    INDEX idx_book_order (vocabulary_book_id, word_order) COMMENT '优化按书籍顺序查询'
+);
+```
+
+**说明：** 
+1. 系统词库独立存储，避免用户修改影响原始数据
+2. 单词基本信息（拼写、音标）与词义分离，避免重复存储
+3. 使用JSON格式存储词性和释义，支持一个单词有多个词性，每个词性有自己的释义
+4. MySQL 5.7+支持JSON类型，可以直接查询JSON字段中的内容
+
+#### 2.4 学生自定义单词表（student_customizations）
+```sql
+CREATE TABLE student_customizations (
+  customization_id INT PRIMARY KEY AUTO_INCREMENT COMMENT '自定义记录ID',
+  student_id INT NOT NULL COMMENT '学生ID',
+  word_basic_id BIGINT NOT NULL COMMENT '单词基本信息ID',
+  meanings JSON COMMENT '学生自定义的词性及中文释义JSON',
+  example_sentence TEXT COMMENT '学生自定义的例句',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  FOREIGN KEY (student_id) REFERENCES accounts_student(id) COMMENT '外键，关联学生表',
+  FOREIGN KEY (word_basic_id) REFERENCES word_basics(id) COMMENT '外键，关联单词基本信息表',
+  UNIQUE KEY (student_id, word_basic_id) COMMENT '确保每个学生对同一单词仅有一条自定义记录'
+);
+```
+
+**说明：** 学生修改内容独立存储，查询时优先返回自定义数据，无则回退到系统词库。
+
+### 3. 学习计划与进度跟踪相关表
+
+#### 3.1 学习计划表（learning_plans）
+```sql
+CREATE TABLE learning_plans (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    student_id INT NOT NULL COMMENT '学生ID',
+    teacher_id INT NULL COMMENT '负责老师ID',
+    vocabulary_book_id BIGINT NOT NULL COMMENT '词汇书ID',
+    words_per_day INT NOT NULL COMMENT '每日新单词量',
+    start_date DATE NOT NULL COMMENT '计划开始日期',
+    is_active BOOLEAN DEFAULT FALSE COMMENT '是否为当前正在学习的计划',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES accounts_student(id),
+    FOREIGN KEY (teacher_id) REFERENCES accounts_teacher(id) ON DELETE SET NULL,
+    FOREIGN KEY (vocabulary_book_id) REFERENCES vocabulary_books(id),
+    INDEX idx_student_book (student_id, vocabulary_book_id),
+    INDEX idx_student_active (student_id, is_active),
+    INDEX idx_teacher (teacher_id)
+);
+```
+
+#### 3.2 学习单元表（learning_units）
+```sql
+CREATE TABLE learning_units (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    learning_plan_id BIGINT NOT NULL COMMENT '关联的学习计划ID',
+    unit_number INT NOT NULL COMMENT '单元序号',
+    start_word_order INT NOT NULL COMMENT '单元起始单词序号',
+    end_word_order INT NOT NULL COMMENT '单元结束单词序号',
+    expected_learn_date DATE NOT NULL COMMENT '计划学习日期',
+    is_learned BOOLEAN DEFAULT FALSE COMMENT '是否已学习',
+    learned_at DATETIME COMMENT '完成学习时间',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (learning_plan_id) REFERENCES learning_plans(id),
+    INDEX idx_plan_unit (learning_plan_id, unit_number),
+    INDEX idx_learn_date (expected_learn_date)
+);
+```
+
+#### 3.3 单元复习记录表（unit_reviews）
+```sql
+CREATE TABLE unit_reviews (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    learning_unit_id BIGINT NOT NULL COMMENT '关联的学习单元ID',
+    review_date DATE NOT NULL COMMENT '艾宾浩斯计划复习日期',
+    review_order INT NOT NULL COMMENT '第几次复习(1-7)',
+    is_completed BOOLEAN DEFAULT FALSE COMMENT '是否已完成',
+    completed_at DATETIME COMMENT '完成时间',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (learning_unit_id) REFERENCES learning_units(id),
+    UNIQUE KEY (learning_unit_id, review_order) COMMENT '确保每个单元的每次复习只有一条记录',
+    INDEX idx_review_date (review_date) COMMENT '优化按日期查询'
+);
+```
+
+---
+
+## 二、功能扩展设计
+
+### 1. 艾宾浩斯学习曲线
+
+艾宾浩斯学习曲线是一种基于遗忘曲线的学习方法，通过定期复习来巩固记忆。本系统通过单元复习记录表实现了该功能，按照科学的时间间隔安排复习任务。
+
+### 2. 查询优化
+
+#### 2.1 获取单词及其所有词性和释义
+```sql
+SELECT 
+  wb.word, 
+  wb.phonetic_symbol,
+  bw.meanings,
+  bw.example_sentence
+FROM word_basics wb
+JOIN book_words bw ON wb.id = bw.word_basic_id
+WHERE bw.vocabulary_book_id = {book_id} AND bw.word_order = {word_order};
+```
+
+#### 获取学生自定义单词（优先自定义内容）
+```sql
+SELECT 
+  wb.word, 
+  wb.phonetic_symbol,
+  COALESCE(sc.meanings, bw.meanings) AS meanings,
+  COALESCE(sc.example_sentence, bw.example_sentence) AS example_sentence
+FROM word_basics wb
+JOIN book_words bw ON wb.id = bw.word_basic_id
+LEFT JOIN student_customizations sc 
+  ON sc.word_basic_id = wb.id 
+  AND sc.student_id = {student_id}
+WHERE bw.vocabulary_book_id = {book_id} AND bw.word_order = {word_order};
+```
+
+---
+
+## 三、性能与扩展性
+
+### 1. 索引优化
+- 所有外键字段已添加索引，提高关联查询性能
+- 在时间相关字段上添加索引，优化按日期查询的复习任务
+- 在 `learning_units` 表的 `expected_learn_date` 字段添加索引，加速学习计划查询
+- 在 `unit_reviews` 表的 `review_date` 字段添加索引，加速复习任务查询
+
+### 2. 分表策略
+- 若数据量过大，可按 `student_id` 范围或哈希分片存储 `student_customizations` 表
+- 学习记录表可考虑按时间分表，提高查询效率
+
+### 3. 缓存策略
+- 高频访问的系统词库（如 `book_words`）可缓存在Redis中，减少数据库压力
+- 用户当日学习计划可缓存，减少重复查询
+
+---
+
+## 四、总结
+
+### 主要设计特点
+- **核心关系**：老师（M）↔ 学生（N），书籍（1）→ 单词（N），学生（1）→ 学习记录（N）
+- **数据隔离**：系统词库与用户自定义数据分离，保证原始数据不可变
+- **动态复习**：通过学习单元和复习记录表实现艾宾浩斯遗忘曲线逻辑
+
+### 技术选型建议
+此设计兼顾功能完整性与扩展性，初期可基于MySQL实现，后期根据业务增长逐步引入分库分表或NoSQL优化。推荐使用InnoDB存储引擎，支持事务和外键约束。

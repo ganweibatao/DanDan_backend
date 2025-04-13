@@ -1,44 +1,75 @@
 from django.db import models
 from django.contrib.auth.models import User
-from apps.vocabulary.models import Word, Course
+from apps.vocabulary.models import VocabularyBook, BookWord
+from apps.accounts.models import Student, Teacher
 
-class UserProgress(models.Model):
-    """用户学习进度"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='progress')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='progress')
-    completed_words = models.ManyToManyField(Word, related_name='completed_by')
-    current_level = models.IntegerField(default=1)
-    total_study_time = models.IntegerField(default=0)  # 总学习时间（分钟）
-    last_study_date = models.DateTimeField(auto_now=True)
+class LearningPlan(models.Model):
+    """学习计划表"""
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='learning_plans')
+    teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_learning_plans', verbose_name='负责老师')
+    vocabulary_book = models.ForeignKey(VocabularyBook, on_delete=models.CASCADE, related_name='learning_plans')
+    words_per_day = models.IntegerField(verbose_name='每日新单词量')
+    start_date = models.DateField(verbose_name='计划开始日期')
+    is_active = models.BooleanField(default=False, verbose_name='是否为当前正在学习的计划')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['user', 'course']
+        verbose_name = '学习计划'
+        verbose_name_plural = '学习计划'
+        db_table = 'learning_plans'
+        indexes = [
+            models.Index(fields=['student', 'vocabulary_book'], name='idx_student_book'),
+            models.Index(fields=['student', 'is_active'], name='idx_student_active'),
+            models.Index(fields=['teacher'], name='idx_teacher'),
+        ]
     
     def __str__(self):
-        return f"{self.user.username}'s progress in {self.course.title}"
+        teacher_info = f" supervised by {self.teacher.user.username}" if self.teacher else ""
+        return f"{self.student.user.username}'s plan for {self.vocabulary_book.name}{teacher_info}"
 
-class Session(models.Model):
-    """学习会话"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='sessions')
-    start_time = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-    duration = models.IntegerField(default=0)  # 会话时长（分钟）
-    words_learned = models.ManyToManyField(Word, related_name='sessions')
-    
-    def __str__(self):
-        return f"{self.user.username}'s session in {self.course.title}"
-
-class StudyRecord(models.Model):
-    """学习记录"""
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='study_records')
-    word = models.ForeignKey(Word, on_delete=models.CASCADE, related_name='study_records')
-    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='records')
-    is_correct = models.BooleanField()
-    response_time = models.IntegerField()  # 响应时间（秒）
+class LearningUnit(models.Model):
+    """学习单元表"""
+    learning_plan = models.ForeignKey(LearningPlan, on_delete=models.CASCADE, related_name='units')
+    unit_number = models.IntegerField(verbose_name='单元序号')
+    start_word_order = models.IntegerField(verbose_name='单元起始单词序号')
+    end_word_order = models.IntegerField(verbose_name='单元结束单词序号')
+    expected_learn_date = models.DateField(verbose_name='计划学习日期')
+    is_learned = models.BooleanField(default=False, verbose_name='是否已学习')
+    learned_at = models.DateTimeField(null=True, blank=True, verbose_name='完成学习时间')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = '学习单元'
+        verbose_name_plural = '学习单元'
+        db_table = 'learning_units'
+        indexes = [
+            models.Index(fields=['learning_plan', 'unit_number'], name='idx_plan_unit'),
+            models.Index(fields=['expected_learn_date'], name='idx_learn_date')
+        ]
     
     def __str__(self):
-        return f"{self.user.username}'s record for {self.word.word}" 
+        return f"Unit {self.unit_number} of {self.learning_plan}"
+
+class UnitReview(models.Model):
+    """单元复习记录表"""
+    learning_unit = models.ForeignKey(LearningUnit, on_delete=models.CASCADE, related_name='reviews')
+    review_date = models.DateField(verbose_name='艾宾浩斯计划复习日期')
+    review_order = models.IntegerField(verbose_name='第几次复习(1-5)')
+    is_completed = models.BooleanField(default=False, verbose_name='是否已完成')
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = '单元复习记录'
+        verbose_name_plural = '单元复习记录'
+        db_table = 'unit_reviews'
+        unique_together = ['learning_unit', 'review_order']
+        indexes = [
+            models.Index(fields=['review_date'], name='idx_review_date')
+        ]
+    
+    def __str__(self):
+        return f"Review {self.review_order} of {self.learning_unit}" 

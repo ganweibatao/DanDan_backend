@@ -63,7 +63,6 @@ back_web/
 
 ### 学习管理 (learning)
 
-- **UserProgress**: 用户学习进度，跟踪课程完成情况
 - **Session**: 学习会话，记录每次学习的细节
 - **StudyRecord**: 学习记录，包括每个单词的学习结果
 
@@ -95,7 +94,6 @@ back_web/
 
 ### 学习管理
 
-- `api/v1/learning/progress/`: 学习进度
 - `api/v1/learning/sessions/`: 学习会话
 - `api/v1/learning/records/`: 学习记录
 
@@ -159,3 +157,22 @@ API文档可以通过`/docs/`访问(需要安装coreapi并取消urls.py中的注
 ## 跨域资源共享
 
 已配置CORS以允许前端应用访问API。开发环境允许所有来源，生产环境需要配置特定来源。 
+
+
+## 数据库配置
+
+本项目使用 PostgreSQL 作为数据库后端。以下是如何验证数据库是否正常工作的步骤：
+
+### 检查数据库连接
+
+1. 在 Django shell 中查看连接信息：
+```bash
+python manage.py shell
+```
+
+```python
+from django.db import connection
+connection.ensure_connection()
+print(connection.vendor)  # 应该输出 "postgresql"
+print(connection.settings_dict)  # 查看连接详情
+```

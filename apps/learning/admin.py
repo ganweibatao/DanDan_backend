@@ -1,22 +1,23 @@
 from django.contrib import admin
-from .models import UserProgress, Session, StudyRecord
+from .models import LearningPlan, LearningUnit, UnitReview
 
-@admin.register(UserProgress)
-class UserProgressAdmin(admin.ModelAdmin):
-    list_display = ('user', 'course', 'current_level', 'total_study_time', 'last_study_date')
-    search_fields = ('user__username', 'course__title')
-    list_filter = ('current_level', 'last_study_date')
-    filter_horizontal = ('completed_words',)
+@admin.register(LearningPlan)
+class LearningPlanAdmin(admin.ModelAdmin):
+    list_display = ('student', 'teacher', 'vocabulary_book', 'words_per_day', 'start_date', 'is_active', 'created_at')
+    search_fields = ('student__user__username', 'teacher__user__username', 'vocabulary_book__name')
+    list_filter = ('is_active', 'teacher', 'start_date')
+    readonly_fields = ('created_at', 'updated_at')
 
-@admin.register(Session)
-class SessionAdmin(admin.ModelAdmin):
-    list_display = ('user', 'course', 'start_time', 'end_time', 'duration')
-    search_fields = ('user__username', 'course__title')
-    list_filter = ('start_time',)
-    filter_horizontal = ('words_learned',)
+@admin.register(LearningUnit)
+class LearningUnitAdmin(admin.ModelAdmin):
+    list_display = ('learning_plan', 'unit_number', 'expected_learn_date', 'is_learned', 'learned_at')
+    search_fields = ('learning_plan__student__user__username',)
+    list_filter = ('is_learned', 'expected_learn_date')
+    readonly_fields = ('created_at', 'updated_at')
 
-@admin.register(StudyRecord)
-class StudyRecordAdmin(admin.ModelAdmin):
-    list_display = ('user', 'word', 'session', 'is_correct', 'response_time', 'created_at')
-    search_fields = ('user__username', 'word__word')
-    list_filter = ('is_correct', 'created_at') 
+@admin.register(UnitReview)
+class UnitReviewAdmin(admin.ModelAdmin):
+    list_display = ('learning_unit', 'review_date', 'review_order', 'is_completed', 'completed_at')
+    search_fields = ('learning_unit__learning_plan__student__user__username',)
+    list_filter = ('is_completed', 'review_date', 'review_order')
+    readonly_fields = ('created_at', 'updated_at') 
