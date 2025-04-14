@@ -191,13 +191,33 @@ class MarkUnitAsLearnedView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
     
     def post(self, request, unit_id):
-        # 1. 仅通过 unit_id 获取 LearningUnit 对象
+        # 仅通过 unit_id 获取 LearningUnit 对象
         unit = get_object_or_404(LearningUnit, pk=unit_id)
         
+        # 从请求中获取 start_word_order 和 end_word_order（如果提供了的话）
+        start_word_order = request.data.get('start_word_order')
+        end_word_order = request.data.get('end_word_order')
+        print(f"Received start_word_order: {start_word_order}, end_word_order: {end_word_order}")
         # 只有在单元从未被学习过的情况下才创建复习任务
         if not unit.is_learned:
             unit.is_learned = True
             unit.learned_at = timezone.now()
+            
+            # 如果前端传递了有效的 start_word_order 和 end_word_order，则更新它们
+            if start_word_order is not None:
+                try:
+                    unit.start_word_order = int(start_word_order)
+                except (ValueError, TypeError):
+                    # 如果转换失败，保持原值不变
+                    pass
+                    
+            if end_word_order is not None:
+                try:
+                    unit.end_word_order = int(end_word_order)
+                except (ValueError, TypeError):
+                    # 如果转换失败，保持原值不变
+                    pass
+            
             unit.save()
             
             # 创建第一个复习任务 (1天后)
@@ -250,11 +270,56 @@ class MarkUnitAsLearnedView(APIView):
             except Exception as e:
                  # 记录创建下一个单元时可能发生的错误
                  print(f"Error creating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
-
+        
+        # 如果已经学习过，则更新此次学习单元和下一个待学习单元的单词范围
         else:
-             # 如果已经学习过，仅更新学习时间
-             unit.learned_at = timezone.now() 
-             unit.save()
+            unit.learned_at = timezone.now()
+             
+            if start_word_order is not None:
+                try:
+                    unit.start_word_order = int(start_word_order)
+                except (ValueError, TypeError):
+                    pass
+                    
+            if end_word_order is not None:
+                try:
+                    unit.end_word_order = int(end_word_order)
+                except (ValueError, TypeError):
+                    pass
+             
+            unit.save()
+            
+            # --- 非首次学习完成时，更新下一个学习单元 ---
+            learning_plan = unit.learning_plan
+            try:
+                vocabulary_book = learning_plan.vocabulary_book
+                total_words = vocabulary_book.word_count if vocabulary_book else 0
+                words_per_day = learning_plan.words_per_day
+
+                if total_words > 0 and words_per_day > 0:
+                    total_units = math.ceil(total_words / words_per_day)
+                    next_unit_number = unit.unit_number + 1
+
+                    if next_unit_number <= total_units:
+                        # 检查下一个单元是否存在
+                        next_unit = LearningUnit.objects.filter(
+                            learning_plan=learning_plan,
+                            unit_number=next_unit_number
+                        ).first()
+                        
+                        if next_unit:
+                            # 更新下一个单元的单词范围
+                            next_start_word_order = unit.end_word_order + 1
+                            next_end_word_order = min(next_start_word_order + words_per_day - 1, total_words)
+                            
+                            next_unit.start_word_order = next_start_word_order
+                            next_unit.end_word_order = next_end_word_order
+                            
+                            next_unit.save()
+                            print(f"Updated next learning unit: {next_unit_number} for plan {learning_plan.id}")
+            except Exception as e:
+                # 记录更新下一个单元时可能发生的错误
+                print(f"Error updating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
 
         serializer = LearningUnitSerializer(unit)
         return Response(serializer.data)
@@ -400,7 +465,7 @@ class TodayLearningView(APIView):
         return response_data
 
     def _get_actual_tasks(self, request, target_plan, total_units, mode):
-        """获取实际任务，并包含单词"""
+        """获取实际任务"""
         new_unit_data = None
         review_units_data = []
         response_data = {}
@@ -413,8 +478,15 @@ class TodayLearningView(APIView):
             ).order_by('-unit_number').first()
 
             current_day_number = 1
+            today = timezone.now().date()
+            should_return_today_learned = False
+            
             if latest_learned_unit:
                 current_day_number = latest_learned_unit.unit_number + 1
+                # 检查最近学习单元是否是今天完成的
+                if latest_learned_unit.learned_at and latest_learned_unit.learned_at.date() == today:
+                    should_return_today_learned = True
+                    current_day_number = latest_learned_unit.unit_number
 
             new_unit_to_learn = None
             if current_day_number <= total_units:
@@ -500,3 +572,67 @@ class TodayLearningView(APIView):
             response_data = self._get_actual_tasks(request, target_plan, total_units, mode)
 
         return Response(response_data)
+
+
+class AddNewWordsView(APIView):
+    """
+    获取额外的新单词学习。
+    需要 plan_id, unit_id, count 参数。
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
+    
+    def get(self, request, plan_id):
+        try:
+            # 获取参数
+            unit_id = request.query_params.get('unit_id')
+            count_str = request.query_params.get('count', '5')
+            
+            # 验证参数
+            if not unit_id:
+                return Response({"error": "必须提供unit_id参数"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            try:
+                count = int(count_str)
+                if count <= 0:
+                    return Response({"error": "count必须为正整数"}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError):
+                return Response({"error": "无效的count参数格式"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取学习计划和单元
+            plan = get_object_or_404(LearningPlan, pk=plan_id)
+            unit = get_object_or_404(LearningUnit, pk=unit_id, learning_plan=plan)
+            
+            # 获取词汇书
+            vocabulary_book = plan.vocabulary_book
+            if not vocabulary_book:
+                return Response({"error": "该学习计划没有关联的词汇书"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 确定单词范围
+            total_words = vocabulary_book.word_count
+            current_end = unit.end_word_order or 0
+            new_end = min(current_end + count, total_words)
+            
+            if current_end >= total_words:
+                return Response({"error": "已达到词汇书最大单词数量"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取额外的单词
+            additional_words = BookWord.objects.filter(
+                vocabulary_book=vocabulary_book,
+                word_order__gt=current_end,
+                word_order__lte=new_end
+            ).order_by('word_order')
+            
+            # 序列化单词数据
+            serializer = BookWordSerializer(additional_words, many=True)
+            
+            return Response({
+                "plan_id": plan_id,
+                "unit_id": unit_id,
+                "original_end_word_order": current_end,
+                "new_end_word_order": new_end,
+                "words": serializer.data
+            })
+            
+        except Exception as e:
+            return Response({"error": f"获取额外单词时发生错误: {str(e)}"}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)

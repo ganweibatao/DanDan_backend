@@ -10,7 +10,7 @@ class LearningPlanAdmin(admin.ModelAdmin):
 
 @admin.register(LearningUnit)
 class LearningUnitAdmin(admin.ModelAdmin):
-    list_display = ('learning_plan', 'unit_number', 'expected_learn_date', 'is_learned', 'learned_at')
+    list_display = ('learning_plan', 'unit_number', 'start_word_order', 'end_word_order', 'expected_learn_date', 'is_learned', 'learned_at')
     search_fields = ('learning_plan__student__user__username',)
     list_filter = ('is_learned', 'expected_learn_date')
     readonly_fields = ('created_at', 'updated_at')
