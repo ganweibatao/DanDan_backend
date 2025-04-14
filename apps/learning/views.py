@@ -197,7 +197,7 @@ class MarkUnitAsLearnedView(APIView):
         # 从请求中获取 start_word_order 和 end_word_order（如果提供了的话）
         start_word_order = request.data.get('start_word_order')
         end_word_order = request.data.get('end_word_order')
-        
+        print(f"Received start_word_order: {start_word_order}, end_word_order: {end_word_order}")
         # 只有在单元从未被学习过的情况下才创建复习任务
         if not unit.is_learned:
             unit.is_learned = True
