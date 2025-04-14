@@ -191,13 +191,33 @@ class MarkUnitAsLearnedView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
     
     def post(self, request, unit_id):
-        # 1. 仅通过 unit_id 获取 LearningUnit 对象
+        # 仅通过 unit_id 获取 LearningUnit 对象
         unit = get_object_or_404(LearningUnit, pk=unit_id)
+        
+        # 从请求中获取 start_word_order 和 end_word_order（如果提供了的话）
+        start_word_order = request.data.get('start_word_order')
+        end_word_order = request.data.get('end_word_order')
         
         # 只有在单元从未被学习过的情况下才创建复习任务
         if not unit.is_learned:
             unit.is_learned = True
             unit.learned_at = timezone.now()
+            
+            # 如果前端传递了有效的 start_word_order 和 end_word_order，则更新它们
+            if start_word_order is not None:
+                try:
+                    unit.start_word_order = int(start_word_order)
+                except (ValueError, TypeError):
+                    # 如果转换失败，保持原值不变
+                    pass
+                    
+            if end_word_order is not None:
+                try:
+                    unit.end_word_order = int(end_word_order)
+                except (ValueError, TypeError):
+                    # 如果转换失败，保持原值不变
+                    pass
+            
             unit.save()
             
             # 创建第一个复习任务 (1天后)
@@ -250,11 +270,56 @@ class MarkUnitAsLearnedView(APIView):
             except Exception as e:
                  # 记录创建下一个单元时可能发生的错误
                  print(f"Error creating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
-
+        
+        # 如果已经学习过，则更新此次学习单元和下一个待学习单元的单词范围
         else:
-             # 如果已经学习过，仅更新学习时间
-             unit.learned_at = timezone.now() 
-             unit.save()
+            unit.learned_at = timezone.now()
+             
+            if start_word_order is not None:
+                try:
+                    unit.start_word_order = int(start_word_order)
+                except (ValueError, TypeError):
+                    pass
+                    
+            if end_word_order is not None:
+                try:
+                    unit.end_word_order = int(end_word_order)
+                except (ValueError, TypeError):
+                    pass
+             
+            unit.save()
+            
+            # --- 非首次学习完成时，更新下一个学习单元 ---
+            learning_plan = unit.learning_plan
+            try:
+                vocabulary_book = learning_plan.vocabulary_book
+                total_words = vocabulary_book.word_count if vocabulary_book else 0
+                words_per_day = learning_plan.words_per_day
+
+                if total_words > 0 and words_per_day > 0:
+                    total_units = math.ceil(total_words / words_per_day)
+                    next_unit_number = unit.unit_number + 1
+
+                    if next_unit_number <= total_units:
+                        # 检查下一个单元是否存在
+                        next_unit = LearningUnit.objects.filter(
+                            learning_plan=learning_plan,
+                            unit_number=next_unit_number
+                        ).first()
+                        
+                        if next_unit:
+                            # 更新下一个单元的单词范围
+                            next_start_word_order = unit.end_word_order + 1
+                            next_end_word_order = min(next_start_word_order + words_per_day - 1, total_words)
+                            
+                            next_unit.start_word_order = next_start_word_order
+                            next_unit.end_word_order = next_end_word_order
+                            
+                            next_unit.save()
+                            print(f"Updated next learning unit: {next_unit_number} for plan {learning_plan.id}")
+            except Exception as e:
+                # 记录更新下一个单元时可能发生的错误
+                print(f"Error updating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
 
         serializer = LearningUnitSerializer(unit)
         return Response(serializer.data)
@@ -400,7 +465,7 @@ class TodayLearningView(APIView):
         return response_data
 
     def _get_actual_tasks(self, request, target_plan, total_units, mode):
-        """获取实际任务，并包含单词"""
+        """获取实际任务"""
         new_unit_data = None
         review_units_data = []
         response_data = {}
@@ -500,3 +565,79 @@ class TodayLearningView(APIView):
             response_data = self._get_actual_tasks(request, target_plan, total_units, mode)
 
         return Response(response_data)
+
+class PlanWordsRangeView(APIView):
+    """
+    获取特定学习计划中指定范围的单词。
+    需要 plan_id, start_order, end_order 参数。
+    """
+    permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
+    
+    def get(self, request):
+        user = request.user
+        
+        # 获取参数
+        plan_id_str = request.query_params.get('plan_id')
+        start_order_str = request.query_params.get('start_order')
+        end_order_str = request.query_params.get('end_order')
+        
+        # 验证必须的参数
+        if not all([plan_id_str, start_order_str, end_order_str]):
+            return Response({"error": "必须提供 plan_id、start_order 和 end_order 参数"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            plan_id = int(plan_id_str)
+            start_order = int(start_order_str)
+            end_order = int(end_order_str)
+            
+            if start_order < 1 or end_order < start_order:
+                return Response({"error": "start_order 必须为正整数，且不大于 end_order"}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取学习计划
+            learning_plan = get_object_or_404(LearningPlan, pk=plan_id)
+            
+            # 权限检查
+            if hasattr(user, 'student_profile'):
+                # 学生：检查计划是否属于自己
+                if learning_plan.student != user.student_profile:
+                    raise PermissionDenied("您无权查看此学习计划的单词")
+            elif hasattr(user, 'teacher_profile') and not user.is_staff:
+                # 教师（非管理员）：检查计划是否由自己创建
+                if learning_plan.teacher != user.teacher_profile:
+                    raise PermissionDenied("您无权查看该学习计划的单词")
+            # 管理员可以访问任何计划
+            elif not user.is_staff:
+                raise PermissionDenied("无法识别的用户类型或权限不足")
+            
+            # 获取词汇书
+            vocabulary_book = learning_plan.vocabulary_book
+            if not vocabulary_book:
+                return Response({"error": "该学习计划没有关联的词汇书"}, 
+                               status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取指定范围的单词
+            words = BookWord.objects.filter(
+                vocabulary_book=vocabulary_book,
+                word_order__gte=start_order,
+                word_order__lte=end_order
+            ).order_by('word_order')
+            
+            # 序列化单词数据
+            serializer = BookWordSerializer(words, many=True)
+            
+            return Response({
+                "plan_id": plan_id,
+                "start_order": start_order,
+                "end_order": end_order,
+                "words": serializer.data
+            })
+            
+        except (ValueError, TypeError):
+            return Response({"error": "无效的参数格式"}, status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied as e:
+            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({"error": f"获取单词时发生错误: {str(e)}"}, 
+                           status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -13,4 +13,7 @@ urlpatterns = [
     
     # 今日学习API：获取今天需要学习和复习的内容
     path('today/', views.TodayLearningView.as_view(), name='today-learning'),
+    
+    # 获取计划中指定范围的单词
+    path('plan-words/', views.PlanWordsRangeView.as_view(), name='plan-words-range'),
 ] 
