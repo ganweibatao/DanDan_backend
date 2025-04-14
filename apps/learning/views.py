@@ -573,78 +573,66 @@ class TodayLearningView(APIView):
 
         return Response(response_data)
 
-class PlanWordsRangeView(APIView):
+
+class AddNewWordsView(APIView):
     """
-    获取特定学习计划中指定范围的单词。
-    需要 plan_id, start_order, end_order 参数。
+    获取额外的新单词学习。
+    需要 plan_id, unit_id, count 参数。
     """
     permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
     
-    def get(self, request):
-        user = request.user
-        
-        # 获取参数
-        plan_id_str = request.query_params.get('plan_id')
-        start_order_str = request.query_params.get('start_order')
-        end_order_str = request.query_params.get('end_order')
-        
-        # 验证必须的参数
-        if not all([plan_id_str, start_order_str, end_order_str]):
-            return Response({"error": "必须提供 plan_id、start_order 和 end_order 参数"}, 
-                           status=status.HTTP_400_BAD_REQUEST)
-        
+    def get(self, request, plan_id):
         try:
-            plan_id = int(plan_id_str)
-            start_order = int(start_order_str)
-            end_order = int(end_order_str)
+            # 获取参数
+            unit_id = request.query_params.get('unit_id')
+            count_str = request.query_params.get('count', '5')
             
-            if start_order < 1 or end_order < start_order:
-                return Response({"error": "start_order 必须为正整数，且不大于 end_order"}, 
-                               status=status.HTTP_400_BAD_REQUEST)
+            # 验证参数
+            if not unit_id:
+                return Response({"error": "必须提供unit_id参数"}, status=status.HTTP_400_BAD_REQUEST)
             
-            # 获取学习计划
-            learning_plan = get_object_or_404(LearningPlan, pk=plan_id)
+            try:
+                count = int(count_str)
+                if count <= 0:
+                    return Response({"error": "count必须为正整数"}, status=status.HTTP_400_BAD_REQUEST)
+            except (ValueError, TypeError):
+                return Response({"error": "无效的count参数格式"}, status=status.HTTP_400_BAD_REQUEST)
             
-            # 权限检查
-            if hasattr(user, 'student_profile'):
-                # 学生：检查计划是否属于自己
-                if learning_plan.student != user.student_profile:
-                    raise PermissionDenied("您无权查看此学习计划的单词")
-            elif hasattr(user, 'teacher_profile') and not user.is_staff:
-                # 教师（非管理员）：检查计划是否由自己创建
-                if learning_plan.teacher != user.teacher_profile:
-                    raise PermissionDenied("您无权查看该学习计划的单词")
-            # 管理员可以访问任何计划
-            elif not user.is_staff:
-                raise PermissionDenied("无法识别的用户类型或权限不足")
+            # 获取学习计划和单元
+            plan = get_object_or_404(LearningPlan, pk=plan_id)
+            unit = get_object_or_404(LearningUnit, pk=unit_id, learning_plan=plan)
             
             # 获取词汇书
-            vocabulary_book = learning_plan.vocabulary_book
+            vocabulary_book = plan.vocabulary_book
             if not vocabulary_book:
-                return Response({"error": "该学习计划没有关联的词汇书"}, 
-                               status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": "该学习计划没有关联的词汇书"}, status=status.HTTP_400_BAD_REQUEST)
             
-            # 获取指定范围的单词
-            words = BookWord.objects.filter(
+            # 确定单词范围
+            total_words = vocabulary_book.word_count
+            current_end = unit.end_word_order or 0
+            new_end = min(current_end + count, total_words)
+            
+            if current_end >= total_words:
+                return Response({"error": "已达到词汇书最大单词数量"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # 获取额外的单词
+            additional_words = BookWord.objects.filter(
                 vocabulary_book=vocabulary_book,
-                word_order__gte=start_order,
-                word_order__lte=end_order
+                word_order__gt=current_end,
+                word_order__lte=new_end
             ).order_by('word_order')
             
             # 序列化单词数据
-            serializer = BookWordSerializer(words, many=True)
+            serializer = BookWordSerializer(additional_words, many=True)
             
             return Response({
                 "plan_id": plan_id,
-                "start_order": start_order,
-                "end_order": end_order,
+                "unit_id": unit_id,
+                "original_end_word_order": current_end,
+                "new_end_word_order": new_end,
                 "words": serializer.data
             })
             
-        except (ValueError, TypeError):
-            return Response({"error": "无效的参数格式"}, status=status.HTTP_400_BAD_REQUEST)
-        except PermissionDenied as e:
-            return Response({"error": str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
-            return Response({"error": f"获取单词时发生错误: {str(e)}"}, 
-                           status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"获取额外单词时发生错误: {str(e)}"}, 
+                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
