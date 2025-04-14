@@ -478,8 +478,15 @@ class TodayLearningView(APIView):
             ).order_by('-unit_number').first()
 
             current_day_number = 1
+            today = timezone.now().date()
+            should_return_today_learned = False
+            
             if latest_learned_unit:
                 current_day_number = latest_learned_unit.unit_number + 1
+                # 检查最近学习单元是否是今天完成的
+                if latest_learned_unit.learned_at and latest_learned_unit.learned_at.date() == today:
+                    should_return_today_learned = True
+                    current_day_number = latest_learned_unit.unit_number
 
             new_unit_to_learn = None
             if current_day_number <= total_units:
