@@ -50,6 +50,14 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
         """根据用户角色获取学习计划列表"""
         user = self.request.user
         
+        # 检查是否请求矩阵数据
+        is_matrix_view = self.request.query_params.get('is_matrix_view') == 'true'
+        matrix_select = None
+        
+        if is_matrix_view:
+            # 只选择矩阵视图需要的字段
+            matrix_select = ('id', 'student_id', 'vocabulary_book_id', 'words_per_day', 'start_date', 'is_active')
+        
         # 检查用户是否为教师
         if hasattr(user, 'teacher_profile'):
             teacher = user.teacher_profile
@@ -59,20 +67,35 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
                 try:
                     student_id_int = int(student_id)
                     # 直接返回该老师为特定学生创建的所有学习计划
-                    return LearningPlan.objects.filter(
+                    queryset = LearningPlan.objects.filter(
                         teacher=teacher, 
                         student_id=student_id_int
-                    ).select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
+                    )
+                    
+                    if matrix_select:
+                        queryset = queryset.only(*matrix_select)
+                    
+                    return queryset.select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
                 except (ValueError, TypeError):
                     return LearningPlan.objects.none() # 无效的 student_id 格式
             else:
                 # 如果没有 student_id，则返回该教师创建的所有计划
-                return LearningPlan.objects.filter(teacher=teacher).select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取并排序 # 预取 units 和 reviews
+                queryset = LearningPlan.objects.filter(teacher=teacher)
+                
+                if matrix_select:
+                    queryset = queryset.only(*matrix_select)
+                
+                return queryset.select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取并排序 # 预取 units 和 reviews
 
         # 检查用户是否为学生
         elif hasattr(user, 'student_profile'):
             student = user.student_profile
-            return LearningPlan.objects.filter(student=student).select_related('teacher__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
+            queryset = LearningPlan.objects.filter(student=student)
+            
+            if matrix_select:
+                queryset = queryset.only(*matrix_select)
+            
+            return queryset.select_related('teacher__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
 
         # 用户既不是教师也不是与个人资料关联的学生
         return LearningPlan.objects.none()
@@ -81,13 +104,25 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
+        
+        # 检查是否请求矩阵数据
+        is_matrix_view = request.query_params.get('is_matrix_view') == 'true'
+        
         if page is not None:
             # 在这里传递上下文给序列化器
-            serializer = self.get_serializer(page, many=True, context={'include_detailed_units': True})
+            context = {
+                'include_detailed_units': True,
+                'is_for_matrix': is_matrix_view
+            }
+            serializer = self.get_serializer(page, many=True, context=context)
             return self.get_paginated_response(serializer.data)
 
         # 在这里传递上下文给序列化器
-        serializer = self.get_serializer(queryset, many=True, context={'include_detailed_units': True})
+        context = {
+            'include_detailed_units': True,
+            'is_for_matrix': is_matrix_view
+        }
+        serializer = self.get_serializer(queryset, many=True, context=context)
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
@@ -310,7 +345,7 @@ class MarkUnitAsLearnedView(APIView):
                         if next_unit:
                             # 更新下一个单元的单词范围
                             next_start_word_order = unit.end_word_order + 1
-                            next_end_word_order = min(next_start_word_order + words_per_day - 1, total_words)
+                            next_end_word_order = min(next_start_word_order + words_per_day, total_words)
                             
                             next_unit.start_word_order = next_start_word_order
                             next_unit.end_word_order = next_end_word_order
@@ -327,6 +362,7 @@ class MarkUnitAsLearnedView(APIView):
 class MarkReviewAsCompletedView(APIView):
     """
     标记当前轮次复习任务为已完成，并且更新UnitReview的数据。
+    不会创建新的复习记录，而是更新当前记录的轮次和下次复习日期。
     """
     permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
     
@@ -336,27 +372,27 @@ class MarkReviewAsCompletedView(APIView):
     def post(self, request, review_id):
         review = get_object_or_404(UnitReview, pk=review_id)
         
-        # 只有在任务未完成时才进行处理，防止重复创建
+        # 只有在任务未完成时才进行处理
         if not review.is_completed:
             review.is_completed = True
             review.completed_at = timezone.now()
-            review.save()
             
-            # 检查是否需要创建下一次复习任务
+            # 检查是否需要更新到下一轮次
             current_order = review.review_order
             if current_order in self.review_intervals_days:
                 days_interval = self.review_intervals_days[current_order]
                 next_review_date = review.completed_at.date() + timedelta(days=days_interval)
                 next_review_order = current_order + 1
                 
-                # 创建下一个复习任务
-                UnitReview.objects.create(
-                    learning_unit=review.learning_unit,
-                    review_order=next_review_order,
-                    review_date=next_review_date
-                )
+                # 更新当前复习任务，而不是创建新的
+                review.review_order = next_review_order
+                review.review_date = next_review_date
+                review.is_completed = False  # 重置为未完成状态，等待下次复习
+                review.completed_at = None   # 清空完成时间
+            
+            review.save()
+        
         # 如果 review 已经是 completed 状态，则直接返回当前状态
-
         serializer = UnitReviewSerializer(review)
         return Response(serializer.data)
 
@@ -506,12 +542,22 @@ class TodayLearningView(APIView):
             response_data['new_unit'] = new_unit_data
         
         elif mode == 'review':
-            today = timezone.now().date()
-            # 直接查询当天及之前到期且未完成的复习任务
+            # 获取学生当前已学习的最大单元编号
+            latest_learned_unit = LearningUnit.objects.filter(
+                learning_plan=target_plan,
+                is_learned=True
+            ).order_by('-unit_number').first()
+            
+            max_unit_number = 0
+            if latest_learned_unit:
+                max_unit_number = latest_learned_unit.unit_number
+            
+            # 查询所有未完成的复习任务
+            # 只获取单元编号不超过当前最新学习单元的复习任务
             pending_reviews = UnitReview.objects.filter(
                 learning_unit__learning_plan=target_plan,
-                review_date__lte=today,
-                is_completed=False
+                is_completed=False,
+                learning_unit__unit_number__lte=max_unit_number  # 确保不超过当前最新学习单元
             ).select_related('learning_unit').order_by('learning_unit__unit_number')
 
             # 获取这些复习任务关联的不重复的学习单元
@@ -636,3 +682,63 @@ class AddNewWordsView(APIView):
         except Exception as e:
             return Response({"error": f"获取额外单词时发生错误: {str(e)}"}, 
                           status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class EbinghausMatrixDataView(APIView):
+    """
+    专门用于艾宾浩斯矩阵的轻量级数据API。
+    只返回矩阵显示所需的必要数据。
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            # 获取学习计划ID
+            plan_id_str = request.query_params.get('plan_id')
+            if not plan_id_str:
+                return Response({"error": "必须提供plan_id参数"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            plan_id = int(plan_id_str)
+            
+            # 验证用户是否有权访问此计划
+            user = request.user
+            plan = LearningPlan.objects.get(pk=plan_id)
+            
+            # 权限验证
+            if hasattr(user, 'student_profile'):
+                if plan.student != user.student_profile:
+                    return Response({"error": "无权访问此计划"}, status=status.HTTP_403_FORBIDDEN)
+            elif hasattr(user, 'teacher_profile') and not user.is_staff:
+                if plan.teacher != user.teacher_profile:
+                    return Response({"error": "无权访问此计划"}, status=status.HTTP_403_FORBIDDEN)
+            elif not user.is_staff:
+                return Response({"error": "无效用户类型"}, status=status.HTTP_403_FORBIDDEN)
+            
+            # 只查询需要的数据
+            learning_plan = LearningPlan.objects.select_related('vocabulary_book').prefetch_related(
+                # 只预加载必要的字段
+                'units__reviews'
+            ).get(pk=plan_id)
+            
+            # 使用带上下文的序列化器
+            serializer = LearningPlanSerializer(
+                learning_plan, 
+                context={'is_for_matrix': True}
+            )
+            
+            # 提取只需要的数据
+            response_data = {
+                'id': serializer.data['id'],
+                'total_days': serializer.data['total_days'],
+                'words_per_day': serializer.data['words_per_day'],
+                'total_words': learning_plan.vocabulary_book.word_count if learning_plan.vocabulary_book else 0,
+                'units': serializer.data['units']
+            }
+            
+            return Response(response_data)
+        
+        except LearningPlan.DoesNotExist:
+            return Response({"error": f"未找到ID为{plan_id_str}的学习计划"}, status=status.HTTP_404_NOT_FOUND)
+        except (ValueError, TypeError):
+            return Response({"error": "无效的plan_id格式"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"获取矩阵数据时出错: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

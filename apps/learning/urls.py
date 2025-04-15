@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     LearningPlanListCreateView, MarkUnitAsLearnedView, 
-    MarkReviewAsCompletedView, TodayLearningView, AddNewWordsView
+    MarkReviewAsCompletedView, TodayLearningView, AddNewWordsView,
+    EbinghausMatrixDataView
 )
 
 urlpatterns = [
@@ -19,4 +20,7 @@ urlpatterns = [
     
     # 获取额外的新单词学习
     path('plan/<int:plan_id>/add_new_words/', AddNewWordsView.as_view(), name='add-new-words'),
+    
+    # 艾宾浩斯矩阵数据
+    path('matrix-data/', EbinghausMatrixDataView.as_view(), name='matrix-data'),
 ] 
