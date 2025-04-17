@@ -21,10 +21,10 @@ from apps.vocabulary.serializers import VocabularyBookSerializer, BookWordSerial
 EBBINGHAUS_INTERVALS = [1, 2, 4, 7, 15]
 # 艾宾浩斯复习间隔映射（复习次序到天数的映射）
 EBBINGHAUS_INTERVALS_MAP = {
-    1: 2,  # 完成第1次复习后，第2次复习在 2 天后
-    2: 4,  # 完成第2次复习后，第3次复习在 4 天后
-    3: 7,  # 完成第3次复习后，第4次复习在 7 天后
-    4: 15, # 完成第4次复习后，第5次复习在 15 天后
+    1: 1,  # 第1轮到第2轮间隔1天
+    2: 2,  # 第2轮到第3轮间隔2天
+    3: 3,  # 第3轮到第4轮间隔3天
+    4: 8,  # 第4轮到第5轮间隔8天
 }
 
 
@@ -50,6 +50,14 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
         """根据用户角色获取学习计划列表"""
         user = self.request.user
         
+        # 检查是否请求矩阵数据
+        is_matrix_view = self.request.query_params.get('is_matrix_view') == 'true'
+        matrix_select = None
+        
+        if is_matrix_view:
+            # 只选择矩阵视图需要的字段
+            matrix_select = ('id', 'student_id', 'vocabulary_book_id', 'words_per_day', 'start_date', 'is_active')
+        
         # 检查用户是否为教师
         if hasattr(user, 'teacher_profile'):
             teacher = user.teacher_profile
@@ -59,20 +67,35 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
                 try:
                     student_id_int = int(student_id)
                     # 直接返回该老师为特定学生创建的所有学习计划
-                    return LearningPlan.objects.filter(
+                    queryset = LearningPlan.objects.filter(
                         teacher=teacher, 
                         student_id=student_id_int
-                    ).select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
+                    )
+                    
+                    if matrix_select:
+                        queryset = queryset.only(*matrix_select)
+                    
+                    return queryset.select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
                 except (ValueError, TypeError):
                     return LearningPlan.objects.none() # 无效的 student_id 格式
             else:
                 # 如果没有 student_id，则返回该教师创建的所有计划
-                return LearningPlan.objects.filter(teacher=teacher).select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取并排序 # 预取 units 和 reviews
+                queryset = LearningPlan.objects.filter(teacher=teacher)
+                
+                if matrix_select:
+                    queryset = queryset.only(*matrix_select)
+                
+                return queryset.select_related('student__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取并排序 # 预取 units 和 reviews
 
         # 检查用户是否为学生
         elif hasattr(user, 'student_profile'):
             student = user.student_profile
-            return LearningPlan.objects.filter(student=student).select_related('teacher__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
+            queryset = LearningPlan.objects.filter(student=student)
+            
+            if matrix_select:
+                queryset = queryset.only(*matrix_select)
+            
+            return queryset.select_related('teacher__user', 'vocabulary_book').prefetch_related('units__reviews').order_by('-created_at') # 预取 units 和 reviews
 
         # 用户既不是教师也不是与个人资料关联的学生
         return LearningPlan.objects.none()
@@ -81,13 +104,25 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
         queryset = self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
+        
+        # 检查是否请求矩阵数据
+        is_matrix_view = request.query_params.get('is_matrix_view') == 'true'
+        
         if page is not None:
             # 在这里传递上下文给序列化器
-            serializer = self.get_serializer(page, many=True, context={'include_detailed_units': True})
+            context = {
+                'include_detailed_units': True,
+                'is_for_matrix': is_matrix_view
+            }
+            serializer = self.get_serializer(page, many=True, context=context)
             return self.get_paginated_response(serializer.data)
 
         # 在这里传递上下文给序列化器
-        serializer = self.get_serializer(queryset, many=True, context={'include_detailed_units': True})
+        context = {
+            'include_detailed_units': True,
+            'is_for_matrix': is_matrix_view
+        }
+        serializer = self.get_serializer(queryset, many=True, context=context)
         return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
@@ -172,7 +207,7 @@ class LearningPlanListCreateView(generics.ListCreateAPIView):
                             unit_number=1,
                             start_word_order=1,
                             end_word_order=min(words_per_day, total_words),
-                            expected_learn_date=learning_plan.start_date if learning_plan.start_date else timezone.now().date()
+                            expected_learn_date= timezone.now().date()
                         )
                         print(f"Created first learning unit: {first_unit.unit_number} for plan {learning_plan.id}")
 
@@ -193,33 +228,14 @@ class MarkUnitAsLearnedView(APIView):
     def post(self, request, unit_id):
         # 仅通过 unit_id 获取 LearningUnit 对象
         unit = get_object_or_404(LearningUnit, pk=unit_id)
-        
-        # 从请求中获取 start_word_order 和 end_word_order（如果提供了的话）
-        start_word_order = request.data.get('start_word_order')
-        end_word_order = request.data.get('end_word_order')
-        print(f"Received start_word_order: {start_word_order}, end_word_order: {end_word_order}")
+        print(f"[MarkUnitAsLearnedView] unit_id={unit_id}, 当前unit: unit_number={unit.unit_number}, start_word_order={unit.start_word_order}, end_word_order={unit.end_word_order}, is_learned={unit.is_learned}, learned_at={unit.learned_at}")
         # 只有在单元从未被学习过的情况下才创建复习任务
         if not unit.is_learned:
             unit.is_learned = True
             unit.learned_at = timezone.now()
-            
-            # 如果前端传递了有效的 start_word_order 和 end_word_order，则更新它们
-            if start_word_order is not None:
-                try:
-                    unit.start_word_order = int(start_word_order)
-                except (ValueError, TypeError):
-                    # 如果转换失败，保持原值不变
-                    pass
-                    
-            if end_word_order is not None:
-                try:
-                    unit.end_word_order = int(end_word_order)
-                except (ValueError, TypeError):
-                    # 如果转换失败，保持原值不变
-                    pass
-            
+            # print(f"[MarkUnitAsLearnedView] 首次学习，设置 is_learned=True, learned_at={unit.learned_at}")
             unit.save()
-            
+            # print(f"[MarkUnitAsLearnedView] 保存后: start_word_order={unit.start_word_order}, end_word_order={unit.end_word_order}")
             # 创建第一个复习任务 (1天后)
             first_review_date = unit.learned_at.date() + timedelta(days=1)
             UnitReview.objects.create(
@@ -227,37 +243,31 @@ class MarkUnitAsLearnedView(APIView):
                 review_order=1,
                 review_date=first_review_date
             )
-
             # --- 创建下一个学习单元（仅在首次学习完成时） ---
             learning_plan = unit.learning_plan # 获取关联的学习计划
             try:
                 vocabulary_book = learning_plan.vocabulary_book
                 total_words = vocabulary_book.word_count if vocabulary_book else 0
                 words_per_day = learning_plan.words_per_day
-
                 if total_words > 0 and words_per_day > 0:
                     total_units = math.ceil(total_words / words_per_day)
                     next_unit_number = unit.unit_number + 1
-
-                    if next_unit_number <= total_units:
+                    next_start_word_order = unit.end_word_order + 1 # 先计算下一个单元的起始单词序号
+                    
+                    # 直接检查是否还有剩余单词可以分配给新单元
+                    if next_start_word_order <= total_words and next_unit_number <= total_units:
                         # 检查下一个单元是否已存在，避免重复创建
                         next_unit_exists = LearningUnit.objects.filter(
                             learning_plan=learning_plan,
                             unit_number=next_unit_number
                         ).exists()
-
                         if not next_unit_exists:
-                            next_start_word_order = unit.end_word_order + 1
                             next_end_word_order = min(next_start_word_order + words_per_day - 1, total_words)
-
                             # 确定下一个单元的预期学习日期
-                            # 核心逻辑：使用当前单元的预期日期加一天
                             if unit.expected_learn_date:
                                 next_expected_learn_date = unit.expected_learn_date + timedelta(days=1)
                             else:
-                                # Fallback: 如果当前单元没有预期日期，则基于当前完成时间计算
                                 next_expected_learn_date = unit.learned_at.date() + timedelta(days=1)
-
                             LearningUnit.objects.create(
                                 learning_plan=learning_plan,
                                 unit_number=next_unit_number,
@@ -265,68 +275,23 @@ class MarkUnitAsLearnedView(APIView):
                                 end_word_order=next_end_word_order,
                                 expected_learn_date=next_expected_learn_date
                             )
-                            print(f"Created next learning unit: {next_unit_number} for plan {learning_plan.id}")
-
+                            print(f"[MarkUnitAsLearnedView] 创建下一个单元: unit_number={next_unit_number}, start_word_order={next_start_word_order}, end_word_order={next_end_word_order}, plan_id={learning_plan.id}")
             except Exception as e:
-                 # 记录创建下一个单元时可能发生的错误
-                 print(f"Error creating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
-        
-        # 如果已经学习过，则更新此次学习单元和下一个待学习单元的单词范围
+                 print(f"[MarkUnitAsLearnedView] Error creating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
+        # 如果已经学习过，则只更新时间
         else:
             unit.learned_at = timezone.now()
-             
-            if start_word_order is not None:
-                try:
-                    unit.start_word_order = int(start_word_order)
-                except (ValueError, TypeError):
-                    pass
-                    
-            if end_word_order is not None:
-                try:
-                    unit.end_word_order = int(end_word_order)
-                except (ValueError, TypeError):
-                    pass
-             
+            # print(f"[MarkUnitAsLearnedView] 非首次学习，更新时间 learned_at={unit.learned_at}")
             unit.save()
-            
-            # --- 非首次学习完成时，更新下一个学习单元 ---
-            learning_plan = unit.learning_plan
-            try:
-                vocabulary_book = learning_plan.vocabulary_book
-                total_words = vocabulary_book.word_count if vocabulary_book else 0
-                words_per_day = learning_plan.words_per_day
-
-                if total_words > 0 and words_per_day > 0:
-                    total_units = math.ceil(total_words / words_per_day)
-                    next_unit_number = unit.unit_number + 1
-
-                    if next_unit_number <= total_units:
-                        # 检查下一个单元是否存在
-                        next_unit = LearningUnit.objects.filter(
-                            learning_plan=learning_plan,
-                            unit_number=next_unit_number
-                        ).first()
-                        
-                        if next_unit:
-                            # 更新下一个单元的单词范围
-                            next_start_word_order = unit.end_word_order + 1
-                            next_end_word_order = min(next_start_word_order + words_per_day - 1, total_words)
-                            
-                            next_unit.start_word_order = next_start_word_order
-                            next_unit.end_word_order = next_end_word_order
-                            
-                            next_unit.save()
-                            print(f"Updated next learning unit: {next_unit_number} for plan {learning_plan.id}")
-            except Exception as e:
-                # 记录更新下一个单元时可能发生的错误
-                print(f"Error updating next learning unit for plan {learning_plan.id} after unit {unit.id}: {e}")
-
+            # print(f"[MarkUnitAsLearnedView] 保存后: start_word_order={unit.start_word_order}, end_word_order={unit.end_word_order}")
         serializer = LearningUnitSerializer(unit)
         return Response(serializer.data)
 
 class MarkReviewAsCompletedView(APIView):
     """
     标记当前轮次复习任务为已完成，并且更新UnitReview的数据。
+    不会创建新的复习记录，而是更新当前记录的轮次和下次复习日期。
+    处理用户落下多轮复习的情况，确保复习进度不会超前理论进度。
     """
     permission_classes = [permissions.IsAuthenticated, IsStudentOwnerOrRelatedTeacherOrAdmin]
     
@@ -336,27 +301,69 @@ class MarkReviewAsCompletedView(APIView):
     def post(self, request, review_id):
         review = get_object_or_404(UnitReview, pk=review_id)
         
-        # 只有在任务未完成时才进行处理，防止重复创建
+        # 只有在任务未完成时才进行处理
         if not review.is_completed:
             review.is_completed = True
             review.completed_at = timezone.now()
-            review.save()
             
-            # 检查是否需要创建下一次复习任务
-            current_order = review.review_order
-            if current_order in self.review_intervals_days:
-                days_interval = self.review_intervals_days[current_order]
-                next_review_date = review.completed_at.date() + timedelta(days=days_interval)
-                next_review_order = current_order + 1
-                
-                # 创建下一个复习任务
-                UnitReview.objects.create(
-                    learning_unit=review.learning_unit,
-                    review_order=next_review_order,
-                    review_date=next_review_date
-                )
-        # 如果 review 已经是 completed 状态，则直接返回当前状态
+            # 获取学习单元的学习完成时间
+            learning_unit = review.learning_unit
+            if learning_unit and learning_unit.learned_at:
+                # 计算理论上应该达到的复习轮次
+                days_since_learned = (timezone.now().date() - learning_unit.learned_at.date()).days
 
+                # 定义每一轮复习应该在哪一天进行（相对于学习日 learned_at）
+                # 直接使用间隔 1, 2, 4, 7, 15 作为距离 learned_at 的天数
+                review_due_days = {
+                    1: 1,
+                    2: 2,
+                    3: 4,
+                    4: 7,
+                    5: 15
+                }
+
+                theoretical_review_order = 0 # 初始为0
+                # 找到最后一个已达到的复习日对应的轮次
+                for order, due_day in review_due_days.items():
+                    if days_since_learned >= due_day:
+                        theoretical_review_order = order
+                    else:
+                        break
+                
+                # print(f"theoretical_review_order: {theoretical_review_order}")
+                # 打印详细日志，便于排查理论复习轮次
+                # print(f"[MarkReviewAsCompletedView] review_id={review.id}, unit_id={learning_unit.id if learning_unit else None}, days_since_learned={days_since_learned}, theoretical_review_order={theoretical_review_order}, current_order={review.review_order}")
+
+                if theoretical_review_order == 0:
+                    # print(f"[MarkReviewAsCompletedView] 理论复习轮次为0，未到任何复习日，直接返回当前review。")
+                    serializer = UnitReviewSerializer(review)
+                    return Response(serializer.data)
+                
+                # 检查是否需要更新到下一轮次
+                current_order = review.review_order
+                next_review_order = current_order + 1
+                # print(f"[MarkReviewAsCompletedView] 当前轮次: {current_order}, 下一轮次: {next_review_order}, 理论最大轮次: {theoretical_review_order}")
+
+                if current_order > theoretical_review_order:
+                    # print(f"[MarkReviewAsCompletedView] 当前轮次({current_order})已超理论轮次({theoretical_review_order})，不做更新，直接返回。")
+                    serializer = UnitReviewSerializer(review)
+                    return Response(serializer.data)
+                
+                if current_order in self.review_intervals_days:
+                    days_interval = self.review_intervals_days[current_order]
+                    # print(f"[MarkReviewAsCompletedView] 下一轮次({next_review_order})在间隔映射中，间隔天数: {days_interval}")
+          
+                # 更新当前复习任务，而不是创建新的
+                next_review_date = review.review_date + timedelta(days=days_interval)
+                # print(f"[MarkReviewAsCompletedView] 当前 review.review_date: {review.review_date}，计算得到的 next_review_date: {next_review_date}")
+                review.review_order = next_review_order
+                review.review_date = next_review_date
+                review.is_completed = False  # 重置为未完成状态，等待下次复习
+                review.completed_at = None   # 清空完成时间
+            
+            review.save()
+        
+        # 如果 review 已经是 completed 状态，则直接返回当前状态
         serializer = UnitReviewSerializer(review)
         return Response(serializer.data)
 
@@ -478,17 +485,57 @@ class TodayLearningView(APIView):
             ).order_by('-unit_number').first()
 
             current_day_number = 1
-            today = timezone.now().date()
-            should_return_today_learned = False
-            
+            # today = timezone.now().date() # 将 today 的获取移到需要它的地方，避免在没有 latest_learned_unit 时也获取
+
             if latest_learned_unit:
                 current_day_number = latest_learned_unit.unit_number + 1
-                # 检查最近学习单元是否是今天完成的
-                if latest_learned_unit.learned_at and latest_learned_unit.learned_at.date() == today:
-                    should_return_today_learned = True
+                today = timezone.now().date() # 在这里获取今天的日期
+
+                # --- 添加日志 ---
+                learned_at_datetime = latest_learned_unit.learned_at
+                learned_at_date = None
+                if learned_at_datetime:
+                    # 尝试转换为当前时区再取日期，以提高比较的准确性
+                    try:
+                        learned_at_local = timezone.localtime(learned_at_datetime)
+                        learned_at_date = learned_at_local.date()
+                    except ValueError: # 处理 naive datetime
+                        learned_at_date = learned_at_datetime.date()
+
+                print(f"[TodayLearningView _get_actual_tasks new] Plan ID: {target_plan.id}")
+                print(f"[TodayLearningView _get_actual_tasks new] Latest Learned Unit: ID={latest_learned_unit.id}, Number={latest_learned_unit.unit_number}")
+                print(f"[TodayLearningView _get_actual_tasks new] Learned At (Raw DateTime): {learned_at_datetime}")
+                print(f"[TodayLearningView _get_actual_tasks new] Learned At (Date Used for Comparison): {learned_at_date}")
+                print(f"[TodayLearningView _get_actual_tasks new] Today's Date (Used for Comparison): {today}")
+
+                is_learned_today = learned_at_date == today if learned_at_date else False
+                print(f"[TodayLearningView _get_actual_tasks new] Is Learned Today Check Result: {is_learned_today}")
+                # --- 日志结束 ---
+
+                # 检查学习单元是否是今天完成的
+                # 使用上面计算好的 learned_at_date 进行比较
+                if learned_at_datetime and learned_at_date == today:
+                    print(f"[TodayLearningView _get_actual_tasks new] Unit {latest_learned_unit.unit_number} was learned today. Setting current_day_number back to {latest_learned_unit.unit_number}.")
                     current_day_number = latest_learned_unit.unit_number
+                else:
+                    # 明确指出为什么没有改回 current_day_number
+                    reason = "learned_at is null" if not learned_at_datetime else f"learned date {learned_at_date} != today {today}"
+                    print(f"[TodayLearningView _get_actual_tasks new] Unit {latest_learned_unit.unit_number} was not learned today ({reason}). Keeping current_day_number as {current_day_number}.")
+
+            else: # 如果没有已学单元
+                 current_day_number = 1 # 应该从第一个开始
+                 today = timezone.now().date() # 获取今日日期用于日志
+                 print(f"[TodayLearningView _get_actual_tasks new] No learned units found for Plan ID: {target_plan.id}. Setting current_day_number to 1.")
+                 print(f"[TodayLearningView _get_actual_tasks new] Today's Date: {today}")
+
 
             new_unit_to_learn = None
+            print(f"[TodayLearningView _get_actual_tasks new] Attempting to find unit with number: {current_day_number} for Plan ID: {target_plan.id}")
+            # 确保在 total_units 计算正确的前提下进行比较
+            if total_units is None: # 添加保护，以防 total_units 未定义或为 None
+                print("[TodayLearningView _get_actual_tasks new] Error: total_units is not calculated correctly.")
+                total_units = 0 # 提供一个默认值避免后续错误
+
             if current_day_number <= total_units:
                 new_unit_to_learn = LearningUnit.objects.filter(
                     learning_plan=target_plan,
@@ -497,21 +544,49 @@ class TodayLearningView(APIView):
                     'learning_plan__student__user',
                     'learning_plan__vocabulary_book'
                 ).first()
-            
+                if new_unit_to_learn:
+                     print(f"[TodayLearningView _get_actual_tasks new] Found new unit to learn: ID={new_unit_to_learn.id}, Number={new_unit_to_learn.unit_number}")
+                else:
+                     # 区分单元不存在和超出总数的情况
+                     exists = LearningUnit.objects.filter(learning_plan=target_plan, unit_number=current_day_number).exists()
+                     if not exists:
+                         print(f"[TodayLearningView _get_actual_tasks new] No unit found with number {current_day_number}. It might not have been created yet.")
+                     # else 的情况实际上在 current_day_number <= total_units 之外处理
+
+            else:
+                 print(f"[TodayLearningView _get_actual_tasks new] current_day_number {current_day_number} exceeds total_units {total_units}. No new unit to learn.")
+
+
             if new_unit_to_learn:
                 serializer = LearningUnitSerializer(new_unit_to_learn, context={'request': request})
                 new_unit_data = serializer.data
+                # 确保在获取单词前 new_unit_to_learn 不是 None
                 new_unit_data['words'] = self._get_words_for_unit(new_unit_to_learn) # 获取并添加单词
+            else:
+                 new_unit_data = None # 明确设置为 None
+
 
             response_data['new_unit'] = new_unit_data
         
         elif mode == 'review':
-            today = timezone.now().date()
-            # 直接查询当天及之前到期且未完成的复习任务
+            # 获取学生当前已学习的最大单元编号
+            latest_learned_unit = LearningUnit.objects.filter(
+                learning_plan=target_plan,
+                is_learned=True
+            ).order_by('-unit_number').first()
+            
+            max_unit_number = 0
+            if latest_learned_unit:
+                max_unit_number = latest_learned_unit.unit_number
+            
+            # 查询所有未完成的复习任务
+            today = timezone.now().date() # 获取今天的日期
             pending_reviews = UnitReview.objects.filter(
                 learning_unit__learning_plan=target_plan,
-                review_date__lte=today,
-                is_completed=False
+                is_completed=False,
+                review_date__lte=today  # 只返回今天及以前应复习的任务，防止超前复习
+            ).exclude(
+                learning_unit__learned_at__date=today
             ).select_related('learning_unit').order_by('learning_unit__unit_number')
 
             # 获取这些复习任务关联的不重复的学习单元
@@ -583,56 +658,152 @@ class AddNewWordsView(APIView):
     
     def get(self, request, plan_id):
         try:
-            # 获取参数
             unit_id = request.query_params.get('unit_id')
             count_str = request.query_params.get('count', '5')
-            
-            # 验证参数
             if not unit_id:
                 return Response({"error": "必须提供unit_id参数"}, status=status.HTTP_400_BAD_REQUEST)
-            
             try:
                 count = int(count_str)
                 if count <= 0:
                     return Response({"error": "count必须为正整数"}, status=status.HTTP_400_BAD_REQUEST)
             except (ValueError, TypeError):
                 return Response({"error": "无效的count参数格式"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # 获取学习计划和单元
             plan = get_object_or_404(LearningPlan, pk=plan_id)
             unit = get_object_or_404(LearningUnit, pk=unit_id, learning_plan=plan)
-            
-            # 获取词汇书
             vocabulary_book = plan.vocabulary_book
             if not vocabulary_book:
                 return Response({"error": "该学习计划没有关联的词汇书"}, status=status.HTTP_400_BAD_REQUEST)
-            
-            # 确定单词范围
             total_words = vocabulary_book.word_count
             current_end = unit.end_word_order or 0
-            new_end = min(current_end + count, total_words)
-            
+            current_start = unit.start_word_order or 1
+            words_per_day = plan.words_per_day or 0
+            # 计算本单元最大允许的 end_word_order
+            max_end = total_words  # 只受词汇书总单词数限制
             if current_end >= total_words:
                 return Response({"error": "已达到词汇书最大单词数量"}, status=status.HTTP_400_BAD_REQUEST)
-            
+            # 不再限制单元最大容量
+            new_end = min(current_end + count, max_end)
             # 获取额外的单词
             additional_words = BookWord.objects.filter(
                 vocabulary_book=vocabulary_book,
                 word_order__gt=current_end,
                 word_order__lte=new_end
             ).order_by('word_order')
-            
-            # 序列化单词数据
             serializer = BookWordSerializer(additional_words, many=True)
-            
+            # 自动扩展 LearningUnit 的 end_word_order
+            with transaction.atomic():
+                old_end = unit.end_word_order
+                unit.end_word_order = new_end
+                unit.save()
+                print(f"[AddNewWordsView] 单元{unit.id}扩展 end_word_order: {old_end} -> {new_end}")
+            # 返回最新 LearningUnit 信息和单词
             return Response({
                 "plan_id": plan_id,
                 "unit_id": unit_id,
                 "original_end_word_order": current_end,
                 "new_end_word_order": new_end,
+                "max_end_word_order": max_end,
                 "words": serializer.data
             })
-            
         except Exception as e:
-            return Response({"error": f"获取额外单词时发生错误: {str(e)}"}, 
-                          status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            print(f"[AddNewWordsView] 获取额外单词时发生错误: {str(e)}")
+            return Response({"error": f"获取额外单词时发生错误: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class EbinghausMatrixDataView(APIView):
+    """
+    专门用于艾宾浩斯矩阵的轻量级数据API。
+    只返回矩阵显示所需的必要数据。
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            # 获取学习计划ID
+            plan_id_str = request.query_params.get('plan_id')
+            if not plan_id_str:
+                return Response({"error": "必须提供plan_id参数"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            plan_id = int(plan_id_str)
+            
+            # 验证用户是否有权访问此计划
+            user = request.user
+            plan = LearningPlan.objects.get(pk=plan_id)
+            
+            # 权限验证
+            if hasattr(user, 'student_profile'):
+                if plan.student != user.student_profile:
+                    return Response({"error": "无权访问此计划"}, status=status.HTTP_403_FORBIDDEN)
+            elif hasattr(user, 'teacher_profile') and not user.is_staff:
+                if plan.teacher != user.teacher_profile:
+                    return Response({"error": "无权访问此计划"}, status=status.HTTP_403_FORBIDDEN)
+            elif not user.is_staff:
+                return Response({"error": "无效用户类型"}, status=status.HTTP_403_FORBIDDEN)
+            
+            # 只查询需要的数据
+            learning_plan = LearningPlan.objects.select_related('vocabulary_book').prefetch_related(
+                # 只预加载必要的字段
+                'units__reviews'
+            ).get(pk=plan_id)
+            
+            # 获取所有单元数据
+            serializer = LearningPlanSerializer(
+                learning_plan, 
+                context={'is_for_matrix': True}
+            )
+            
+            all_units = serializer.data['units']
+            # 找到未学单元的最大 unit_number
+            max_unit_number = max(
+                (unit['unit_number'] for unit in all_units if not unit.get('is_learned', False)),
+                default=None
+            )
+
+            # 过滤掉 is_learned=False 且 unit_number==max_unit_number 的单元
+            filtered_units = [
+                unit for unit in all_units
+                if not (not unit.get('is_learned', False) and unit.get('unit_number', 0) == max_unit_number)
+            ]
+
+            # 计算理论unit数量
+            words_per_day = serializer.data['words_per_day']
+            total_words = learning_plan.vocabulary_book.word_count if learning_plan.vocabulary_book else 0
+            estimated_unit_count = math.ceil(total_words / words_per_day) if words_per_day and total_words else 0
+            max_actual_unit_number = max((unit['unit_number'] for unit in all_units), default=0)
+            # 找到最大unit_number对应的unit
+            max_unit = next((unit for unit in all_units if unit['unit_number'] == max_actual_unit_number), None)
+            max_unit_word_count = 0
+            if max_unit:
+                start_order = max_unit.get('start_word_order', 0)
+                end_order = max_unit.get('end_word_order', 0)
+                max_unit_word_count = end_order - start_order + 1 if end_order and start_order else 0
+
+            # # 打印关键数据，便于定位BUG
+            # print("words_per_day:", words_per_day)
+            # print("total_words:", total_words)
+            # print("estimated_unit_count:", estimated_unit_count)
+            # print("max_actual_unit_number:", max_actual_unit_number)
+            # print("max_unit:", max_unit)
+            # print("max_unit_word_count:", max_unit_word_count)
+
+            # 标志逻辑：实际最大unit_number < 理论unit数量 且 max_unit单词数 < words_per_day
+            has_unused_lists = (max_actual_unit_number < estimated_unit_count) and (max_unit_word_count < words_per_day)
+
+            # 提取只需要的数据
+            response_data = {
+                'id': serializer.data['id'],
+                'total_days': serializer.data['total_days'],
+                'words_per_day': words_per_day,
+                'total_words': total_words,
+                'units': filtered_units,
+                'has_unused_lists': has_unused_lists,
+                'max_actual_unit_number': max_actual_unit_number,
+            }
+            
+            return Response(response_data)
+        
+        except LearningPlan.DoesNotExist:
+            return Response({"error": f"未找到ID为{plan_id_str}的学习计划"}, status=status.HTTP_404_NOT_FOUND)
+        except (ValueError, TypeError):
+            return Response({"error": "无效的plan_id格式"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"error": f"获取矩阵数据时出错: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

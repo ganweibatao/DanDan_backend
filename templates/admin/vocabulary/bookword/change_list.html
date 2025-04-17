@@ -1,0 +1,11 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+    {% if show_import_button %}
+    <li>
+        <a href="{% url 'admin:vocabulary_bookword_import-book-words' %}" class="addlink">导入单词</a>
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

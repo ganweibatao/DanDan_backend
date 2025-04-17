@@ -13,6 +13,13 @@ class UnitReviewSerializer(serializers.ModelSerializer):
             'is_completed', 'completed_at', 'created_at', 'updated_at'
         ]
 
+# 为矩阵视图添加精简版复习序列化器
+class EbinghausReviewSerializer(serializers.ModelSerializer):
+    """艾宾浩斯矩阵专用的精简复习序列化器"""
+    class Meta:
+        model = UnitReview
+        fields = ['id', 'review_order', 'is_completed']
+
 class LearningUnitSerializer(serializers.ModelSerializer):
     """学习单元序列化器"""
     reviews = UnitReviewSerializer(many=True, read_only=True)
@@ -25,6 +32,18 @@ class LearningUnitSerializer(serializers.ModelSerializer):
             'end_word_order', 'expected_learn_date', 'is_learned', 
             'learned_at', 'created_at', 'updated_at', 'reviews',
             'words'
+        ]
+
+# 为矩阵视图添加精简版学习单元序列化器
+class EbinghausUnitSerializer(serializers.ModelSerializer):
+    """艾宾浩斯矩阵专用的精简学习单元序列化器"""
+    reviews = EbinghausReviewSerializer(many=True, read_only=True)
+    
+    class Meta:
+        model = LearningUnit
+        fields = [
+            'id', 'unit_number', 'start_word_order', 'end_word_order',
+            'is_learned', 'learned_at', 'reviews'
         ]
 
 class LearningPlanSerializer(serializers.ModelSerializer):
@@ -56,8 +75,16 @@ class LearningPlanSerializer(serializers.ModelSerializer):
         
         # 检查上下文，决定是否包含详细单元信息
         include_detailed_units = self.context.get('include_detailed_units', False)
+        is_for_matrix = self.context.get('is_for_matrix', False)
         
-        if not include_detailed_units and 'units' in rep and rep['units']:
+        if is_for_matrix:
+            # 如果是为矩阵视图优化，使用精简的单元序列化器
+            units = instance.units
+            # 兼容 manager/list
+            if hasattr(units, 'all'):
+                units = units.all()
+            rep['units'] = EbinghausUnitSerializer(units, many=True).data
+        elif not include_detailed_units and 'units' in rep and rep['units']:
             # 如果不要求详细单元，且存在单元数据，则进行汇总
             unit_count = len(rep['units'])
             learned_count = sum(1 for unit in rep['units'] if unit.get('is_learned', False)) # 使用 .get() 更安全

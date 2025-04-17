@@ -91,13 +91,18 @@ class StudentCustomization(models.Model):
     )
     meanings = models.JSONField(blank=True, null=True, verbose_name='学生自定义的词性及中文释义JSON')
     example_sentence = models.TextField(blank=True, null=True, verbose_name='学生自定义的例句')
+    notes = models.TextField(blank=True, null=True, verbose_name='学生笔记')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
     class Meta:
         verbose_name = '学生单词自定义'
         verbose_name_plural = '学生单词自定义'
         db_table = 'student_customizations'
         unique_together = ['student', 'word_basic']
+        indexes = [
+            models.Index(fields=['student', 'word_basic'], name='idx_student_word_basic')
+        ]
         
     def __str__(self):
         return f"{self.student.user.username} - {self.word_basic.word if self.word_basic else 'Unknown Word'}"

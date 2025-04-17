@@ -1,0 +1,108 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .warning-box {
+        background-color: #fff3cd;
+        border: 1px solid #ffeeba;
+        color: #856404;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    .warning-title {
+        font-weight: bold;
+        margin-bottom: 10px;
+        font-size: 16px;
+    }
+    .warning-list {
+        margin-left: 20px;
+    }
+    .button-row {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    .confirm-button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    .cancel-button {
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .confirm-button:hover {
+        background-color: #0069d9;
+    }
+    .cancel-button:hover {
+        background-color: #5a6268;
+        text-decoration: none;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_label|capfirst }}</a>
+&rsaquo; <a href="{% url 'admin:vocabulary_bookword_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; {% trans '确认导入' %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <h1>{% trans "确认导入单词" %}</h1>
+    
+    {% if duplicate_warning or existing_warning %}
+        <div class="warning-box">
+            <div class="warning-title">{% trans "请注意以下问题:" %}</div>
+            
+            {% if duplicate_warning %}
+            <div class="warning-content">
+                <p>{{ duplicate_warning }}</p>
+                <p>{% trans "这些单词将被作为独立记录导入，而不会合并为一个单词。" %}</p>
+            </div>
+            {% endif %}
+            
+            {% if existing_warning %}
+            <div class="warning-content" style="margin-top: 15px;">
+                <p>{{ existing_warning }}</p>
+                <p>{% trans "这些单词将被作为新记录导入，而不会更新现有记录。" %}</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <p>{% trans "您确定要继续导入吗？" %}</p>
+        
+        <div class="button-row">
+            <form action="{% url 'admin:vocabulary_bookword_process-import' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="confirm-button">{% trans "确认导入" %}</button>
+            </form>
+            <a href="{% url 'admin:vocabulary_bookword_changelist' %}" class="cancel-button">{% trans "取消" %}</a>
+        </div>
+    {% else %}
+        <p>{% trans "没有发现问题，您可以继续导入。" %}</p>
+        <div class="button-row">
+            <form action="{% url 'admin:vocabulary_bookword_process-import' %}" method="post">
+                {% csrf_token %}
+                <button type="submit" class="confirm-button">{% trans "继续导入" %}</button>
+            </form>
+            <a href="{% url 'admin:vocabulary_bookword_changelist' %}" class="cancel-button">{% trans "取消" %}</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

@@ -82,8 +82,8 @@
                     {% trans "CSV文件必须包含以下列:" %}<br/>
                     <strong>word</strong> (必填，单词拼写)<br/>
                     <strong>phonetic_symbol</strong> (选填，音标)<br/>
-                    <strong>part_of_speech</strong> (选填，词性，如：n., v., adj.等)<br/>
-                    <strong>chinese_meaning</strong> (选填，中文释义)<br/>
+                    <strong>part_of_speech</strong> (选填，词性，如：n., v., adj.等。<span style="color:#0066cc;">支持多个词性，使用分号(;)分隔</span>)<br/>
+                    <strong>chinese_meaning</strong> (选填，中文释义。<span style="color:#0066cc;">支持多个释义，使用分号(;)分隔，须与词性数量对应</span>)<br/>
                     <strong>example_sentence</strong> (选填，例句)<br/>
                     <strong>word_order</strong> (选填，单词在书中的顺序，留空则自动递增)
                 </p>
@@ -93,9 +93,17 @@
                     <pre>word,phonetic_symbol,part_of_speech,chinese_meaning,example_sentence,word_order
 apple,/ˈæpl/,n.,苹果,"I eat an apple every day.",1
 banana,/bəˈnɑːnə/,n.,香蕉,"I like to eat bananas for breakfast.",2
-cat,/kæt/,n.,猫,"The cat is sleeping on the couch.",3</pre>
+cat,/kæt/,n.,猫,"The cat is sleeping on the couch.",3
+book,/bʊk/,"n.;v.","书籍;预订","I bought a new book yesterday.",4
+use,/juːz/,"n.;v.;adj.","使用","We should use resources wisely.",5
+run,/rʌn/,"n.;v.","跑步;[跑,运行,管理]","She runs three miles every morning.",6</pre>
                     <p>{% trans "注意: word_order列可以留空，系统会自动按照导入顺序分配顺序值。" %}</p>
-                    <p style="color:#cc3300;font-weight:bold;">{% trans "重要提示: 当某个字段内容包含逗号时（如例句中的逗号），必须用双引号(\")将整个内容包裹起来，如上例所示。否则CSV解析会出错。" %}</p>
+                    <p style="color:#cc3300;font-weight:bold;">{% trans "重要提示: 当某个字段内容包含逗号或分号时，必须用双引号(\")将整个内容包裹起来，如上例所示。否则CSV解析会出错。" %}</p>
+                    <p style="color:#0066cc;font-weight:bold;">{% trans "多词性导入: 如上例中的'book'，可以在part_of_speech中用分号分隔多个词性(n.;v.)，同时在chinese_meaning中也用分号分隔对应的释义(书籍;预订)。系统会自动匹配和保存多个词性的释义。" %}</p>
+                    <p style="color:#0066cc;">{% trans "1. 如果词性数量和释义数量相等，系统会一一对应匹配。" %}</p>
+                    <p style="color:#0066cc;">{% trans "2. 如果有多个词性但只有一个释义(如：\"n.;v.;adj.\",\"使用\")，系统会将这个释义应用到所有词性。" %}</p>
+                    <p style="color:#0066cc;">{% trans "3. 如果只有一个词性但有多个释义，所有释义会被合并为一个。" %}</p>
+                    <p style="color:#0066cc;">{% trans "4. 复合释义格式：如上例中的'run'，对于需要多个释义的词性，可以使用方括号格式 \"[释义1,释义2,释义3]\"。词性\"n.;v.\"对应\"跑步;[跑,运行,管理]\" 表示n.词性对应单个释义\"跑步\"，而v.词性对应三个释义\"跑\"、\"运行\"和\"管理\"。" %}</p>
                 </div>
             </div>
             

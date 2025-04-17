@@ -15,6 +15,7 @@ import io
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
+from django.contrib.auth.models import User
 from apps.accounts.models import Student
 
 # 尝试导入Student模型
@@ -34,6 +35,13 @@ else:
             return user.student
         except:
             return None
+
+def get_student_or_none(user):
+    from apps.accounts.models import Student
+    try:
+        return Student.objects.get(user=user)
+    except Student.DoesNotExist:
+        return None
 
 # 新增视图集
 class VocabularyBookViewSet(viewsets.ModelViewSet):
@@ -169,7 +177,7 @@ class StudentCustomizationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """只返回当前学生的自定义内容"""
         try:
-            student = get_student(self.request.user)
+            student = get_student_or_none(self.request.user)
             if not student:
                 return StudentCustomization.objects.none()
             return StudentCustomization.objects.filter(student=student)
@@ -178,7 +186,7 @@ class StudentCustomizationViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """创建时自动关联当前学生"""
-        student = get_student(self.request.user)
+        student = get_student_or_none(self.request.user)
         if not student:
             raise serializers.ValidationError("用户必须是学生才能自定义单词")
         serializer.save(student=student)
@@ -186,7 +194,7 @@ class StudentCustomizationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def customize_word(self, request):
         """创建或更新学生对单词的自定义内容"""
-        student = get_student(request.user)
+        student = get_student_or_none(request.user)
         if not student:
             return Response({"error": "用户必须是学生才能自定义单词"}, status=403)
             
@@ -259,12 +267,20 @@ class StudentCustomizationListView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        student = get_object_or_404(Student, user=self.request.user)
-        return StudentCustomization.objects.filter(student=student).select_related('word_basic')
+        student = get_student_or_none(self.request.user)
+        return StudentCustomization.objects.filter(student=student).select_related('word_basic').order_by('-updated_at')
 
     def perform_create(self, serializer):
-        student = get_object_or_404(Student, user=self.request.user)
-        serializer.save(student=student)
+        student = get_student_or_none(self.request.user)
+        word_basic_id = self.request.data.get('word_basic')
+        if not word_basic_id:
+            raise serializers.ValidationError({"word_basic": "This field is required."})
+        word_basic = get_object_or_404(WordBasic, id=word_basic_id)
+        
+        if StudentCustomization.objects.filter(student=student, word_basic=word_basic).exists():
+             raise serializers.ValidationError({"detail": "Customization for this word already exists. Use PATCH/PUT to update."})
+
+        serializer.save(student=student, word_basic=word_basic)
 
 # 学生单词自定义详情API
 class StudentCustomizationDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -273,35 +289,76 @@ class StudentCustomizationDetailView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = 'pk'
 
     def get_queryset(self):
-        student = get_object_or_404(Student, user=self.request.user)
-        return StudentCustomization.objects.filter(student=student)
+        student = get_student_or_none(self.request.user)
+        return StudentCustomization.objects.filter(student=student).select_related('word_basic')
 
 # 获取用户自定义或默认单词API
 class UserWordView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, word_basic_id):
-        student = get_object_or_404(Student, user=request.user)
+        student = get_student_or_none(request.user)
         word_basic = get_object_or_404(WordBasic, id=word_basic_id)
         
-        # 尝试获取学生自定义内容
         custom_word = StudentCustomization.objects.filter(
             student=student,
             word_basic=word_basic
-        ).first()
+        ).select_related('word_basic').first()
         
         if custom_word:
             serializer = StudentCustomizationSerializer(custom_word)
             return Response(serializer.data)
         
-        # 如果没有自定义，返回默认数据
-        book_word = BookWord.objects.filter(word_basic=word_basic).first()
+        book_word = BookWord.objects.filter(word_basic=word_basic).select_related('word_basic').first()
         if book_word:
             serializer = BookWordSerializer(book_word)
-            return Response(serializer.data)
+            data = serializer.data
+            data['notes'] = None
+            data['word_basic'] = word_basic.id
+            return Response(data)
         
-        # 如果没有任何相关数据，返回404
-        return Response({"detail": "Word not found"}, status=status.HTTP_404_NOT_FOUND)
+        basic_serializer = WordBasicSerializer(word_basic)
+        data = basic_serializer.data
+        data['notes'] = None
+        data['meanings'] = None
+        data['example_sentence'] = None
+        data['word_basic'] = word_basic.id
+        return Response(data, status=status.HTTP_200_OK)
+
+    def post(self, request, word_basic_id):
+        print("请求数据:", request.data)
+        # 下面是你原有的逻辑
+        student_id = request.data.get('student_id')
+        if student_id:
+            student = get_object_or_404(Student, id=student_id)
+        else:
+            student = Student.objects.filter(user=request.user).first()
+            if not student:
+                return Response({"detail": "未指定学生，且当前用户不是学生"}, status=status.HTTP_403_FORBIDDEN)
+
+        word_basic = get_object_or_404(WordBasic, id=word_basic_id)
+        data = request.data.copy()
+
+        customization, created = StudentCustomization.objects.get_or_create(
+            student=student,
+            word_basic=word_basic,
+            defaults={
+                'meanings': data.get('meanings'),
+                'example_sentence': data.get('example_sentence'),
+                'notes': data.get('notes')
+            }
+        )
+
+        if not created:
+            serializer = StudentCustomizationSerializer(customization, data=data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            serializer = StudentCustomizationSerializer(customization)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # 获取单词基本信息API
 class WordBasicListView(generics.ListAPIView):
@@ -437,4 +494,33 @@ class ExportWordsView(APIView):
         except VocabularyBook.DoesNotExist:
             return Response({"error": "指定的词汇书不存在"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({"error": f"导出失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
+            return Response({"error": f"导出失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class WordCustomizationListView(APIView):
+    """
+    批量获取某个学生的单词自定义信息（如笔记、例句等）
+    POST body: { student_id, word_ids: [id1, id2, ...] 或 'id1,id2,...' }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        student_id = request.data.get('student_id')
+        word_ids = request.data.get('word_ids')
+        if not student_id or not word_ids:
+            return Response([], status=400)
+        # 支持前端传递数组或逗号分隔字符串
+        if isinstance(word_ids, str):
+            word_id_list = [int(i) for i in word_ids.split(',') if str(i).isdigit()]
+        else:
+            word_id_list = [int(i) for i in word_ids if isinstance(i, int) or (isinstance(i, str) and str(i).isdigit())]
+        queryset = StudentCustomization.objects.filter(student_id=student_id, word_basic_id__in=word_id_list)
+        data = [
+            {
+                "word_basic_id": sc.word_basic_id,
+                "notes": sc.notes,
+                "example_sentence": sc.example_sentence,
+                "meanings": sc.meanings,
+            }
+            for sc in queryset
+        ]
+        return Response(data) 

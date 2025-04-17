@@ -31,12 +31,12 @@ class LearningPlan(models.Model):
 class LearningUnit(models.Model):
     """学习单元表"""
     learning_plan = models.ForeignKey(LearningPlan, on_delete=models.CASCADE, related_name='units')
-    unit_number = models.IntegerField(verbose_name='单元序号')
-    start_word_order = models.IntegerField(verbose_name='单元起始单词序号')
-    end_word_order = models.IntegerField(verbose_name='单元结束单词序号')
-    expected_learn_date = models.DateField(verbose_name='计划学习日期')
-    is_learned = models.BooleanField(default=False, verbose_name='是否已学习')
-    learned_at = models.DateTimeField(null=True, blank=True, verbose_name='完成学习时间')
+    unit_number = models.IntegerField()
+    start_word_order = models.IntegerField()
+    end_word_order = models.IntegerField()
+    expected_learn_date = models.DateField()
+    is_learned = models.BooleanField(default=False)
+    learned_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

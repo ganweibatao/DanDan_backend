@@ -12,6 +12,7 @@ urlpatterns = [
     path('words/search/', views.WordSearchView.as_view(), name='word-search'),
     path('words/basic/', views.WordBasicListView.as_view(), name='word-basic-list'),
     path('words/user/<int:word_basic_id>/', views.UserWordView.as_view(), name='user-word'),
+    path('words/customization/', views.WordCustomizationListView.as_view(), name='word-customization-list'),
     
     # 学生自定义相关
     path('customizations/', views.StudentCustomizationListView.as_view(), name='student-customization-list'),
