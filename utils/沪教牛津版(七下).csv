@@ -1,299 +1,298 @@
-word,phonetic_symbol,part_of_speech,chinese_meaning,example_sentence,word_order
-advice,/ədˈvaɪs/,n.,建议,"She gave me some good advice about my studies.",1
-encourage,/ɪnˈkʌrɪdʒ/,v.,鼓励；激励,"My parents always encourage me to try new things.",2
-retire,/rɪˈtaɪə(r)/,v.,退职；退休,"My grandfather plans to retire next year after working for 40 years.",3
-cheerful,/ˈtʃɪəf(ə)l/,adj.,快乐的；高兴的,"She has a cheerful personality and always makes people smile.",4
-community,/kəˈmjuːnəti/,n.,社区,"Our community organizes activities for children every weekend.",5
-medical,/ˈmedɪkl/,adj.,医学的；医疗的,"He is studying at a medical school to become a doctor.",6
-fried,/fraɪd/,adj.,油炸的；油煎的；油炒的,"I prefer fried rice rather than steamed rice.",7
-wherever,/weərˈevə(r)/,conj.,各处；处处,"You can find happiness wherever you go.",8
-future,/ˈfjuːtʃə(r)/,n.,将来；未来,"In the future, I want to be a scientist.",9
-soon,/suːn/,adv.,很快；马上；不久,"The bus will arrive soon, please wait here.",10
-smart,/smɑːt/,adj.,聪明的；机敏的,"She is very smart and always gets top grades in math.",11
-attention,/əˈtenʃn/,n.,专心；注意力,"Please pay attention to the teacher during the lesson.",12
-seldom,/ˈseldəm/,adv.,不常；很少；难得,"He seldom goes to the cinema these days.",13
-bored,/bɔːd/,adj.,厌倦的；烦闷的,"I was bored during the long meeting yesterday.",14
-strict,/strɪkt/,adj.,要求严格的；严厉的,"My father is strict about my study habits.",15
-relative,/ˈrelətɪv/,n.,亲戚；亲属,"Many of my relatives will come to visit during the Spring Festival.",16
-uniform,/ˈjuːnɪfɔːm/,n.,制服；校服,"All students in our school wear the same uniform.",17
-personality,/ˌpɜːsəˈnæləti/,n.,性格；个性,"She has a friendly personality and gets along with everyone.",18
-characteristic,/ˌkærəktəˈrɪstɪk/,n.,特点；品质,"One characteristic of dolphins is their intelligence.",19
-topic,/ˈtɒpɪk/,n.,话题；标题,"Our discussion topic for today is environmental protection.",20
-active,/ˈæktɪv/,adj.,忙碌的；活跃的,"She is very active in school clubs and sports teams.",21
-smartphone,/ˈsmɑːtfəʊn/,n.,智能手机,"Most teenagers now have a smartphone for communication.",22
-wisely,/ˈwaɪzli/,adv.,聪明地；明智地,"He wisely saved some money for future education.",23
-competition,/ˌkɒmpəˈtɪʃn/,n.,比赛；竞赛,"Our school will participate in the music competition next month.",24
-shower,/ˈʃaʊə(r)/,n.,淋浴,"I always take a shower after exercise.",25
-online,/ˌɒnˈlaɪn/,adj.,在线的,"Many students take online courses during the pandemic.",26
-site,/saɪt/,n.,建筑工地,"The construction site is closed on weekends.",27
-narrow,/ˈnærəʊ/,adj.,狭窄的；窄小的,"The road to the village is very narrow and difficult to drive on.",28
-superman,/ˈsuːpəmæn/,n.,超人,"Many children dream of being as strong as superman.",29
-give up,/ɡɪv ʌp/,phr.,认输；放弃,"Don't give up when you face difficulties in your studies.",30
-used to,/juːzd tuː/,phr.,曾经,"I used to play the piano when I was young.",31
-in the future,/ɪn ðə ˈfjuːtʃə(r)/,phr.,在未来,"In the future, I want to become a doctor.",32
-be strict about,/bi strɪkt əˈbaʊt/,phr.,对……要求严格,"My teacher is strict about homework deadlines.",33
-be worried about,/bi ˈwʌrid əˈbaʊt/,phr.,担心,"My mother is always worried about my health.",34
-wine,/waɪn/,n.,葡萄酒,"This restaurant serves excellent wine with dinner.",35
-match,/mætʃ/,v.,配对,"Can you match the English words with their Chinese meanings?",36
-rich,/rɪtʃ/,adj.,丰富多彩的,"China has a rich culture with many traditions.",37
-lie,/laɪ/,v.,位于；坐落在,"The city lies between two mountains.",38
-café,/ˈkæfeɪ/,n.,咖啡馆；小餐馆,"We often meet at the café near our school.",39
-excellent,/ˈeksələnt/,adj.,优秀的；极好的,"She received excellent marks on her English test.",40
-coast,/kəʊst/,n.,海岸；海滨,"We spent our summer vacation on the coast of Hainan.",41
-perfect,/ˈpɜːfɪkt/,adj.,正合适,"This sweater is perfect for cold winter days.",42
-mostly,/ˈməʊstli/,adv.,主要地；通常,"The students in our class are mostly from Beijing.",43
-receive,/rɪˈsiːv/,v.,接待；招待,"The hotel staff received us warmly when we arrived.",44
-key,/kiː/,adj.,主要的；关键的,"Education is a key factor in a child's development.",45
-remain,/rɪˈmeɪn/,v.,仍然是；保持不变,"Despite all the changes, some traditions remain the same.",46
-lift,/lɪft/,n.,电梯；升降机,"We took the lift to the tenth floor of the building.",47
-step,/step/,n.,台阶,"Be careful when you go up these steps as they are quite steep.",48
-stair,/steə(r)/,n.,楼梯,"The old house has a beautiful wooden stair leading to the second floor.",49
-motorcycle,/ˈməʊtəsaɪkl/,n.,摩托车,"My brother rides a motorcycle to work every day.",50
-sightseeing,/ˈsaɪtsiːɪŋ/,n.,观光；游览,"We spent the day sightseeing in the ancient city.",51
-imagine,/ɪˈmædʒɪn/,v.,想象；设想,"Can you imagine what life will be like in 100 years?",52
-destination,/ˌdestɪˈneɪʃn/,n.,目的地；终点,"Paris is a popular tourist destination for people all over the world.",53
-address,/əˈdres/,n.,住址；地址,"Please write your full address on this form.",54
-government,/ˈɡʌvənmənt/,n.,政府,"The government has announced new policies for education.",55
-unique,/juˈniːk/,adj.,独特的；罕见的,"Every person has a unique set of fingerprints.",56
-endangered,/ɪnˈdeɪndʒəd/,adj.,濒危的,"Giant pandas are no longer an endangered species.",57
-stretch,/stretʃ/,v.,延伸；绵延,"The Great Wall stretches for thousands of kilometers.",58
-huge,/hjuːdʒ/,adj.,巨大的；极多的,"There was a huge crowd at the concert last night.",59
-wild,/waɪld/,adj.,野的；野生的,"There are still some wild elephants living in the forest.",60
-discover,/dɪˈskʌvə(r)/,v.,了解到；查明,"Scientists discover new species of animals every year.",61
-volcano,/vɒlˈkeɪnəʊ/,n.,火山,"The volcano has been dormant for over 100 years.",62
-range,/reɪndʒ/,n.,山脉,"The Himalayas is the highest mountain range in the world.",63
-snowmobile,/ˈsnəʊməbiːl/,n.,雪地机动车,"In winter, many people use snowmobiles to travel in snowy areas.",64
-wolf,/wʊlf/,n.,狼,"Wolves usually hunt in packs at night.",65
-department store,/dɪˈpɑːtmənt stɔː/,phr.,百货商店,"We bought Christmas gifts at the department store downtown.",66
-prefer to,/prɪˈfɜː tuː/,phr.,更喜欢,"I prefer to study in the morning when my mind is fresh.",67
-by hand,/baɪ hænd/,phr.,用手工,"This beautiful sweater was made by hand.",68
-go sightseeing,/ɡəʊ ˈsaɪtsiːɪŋ/,phr.,去观光,"We plan to go sightseeing in the old town tomorrow.",69
-go on a trip,/ɡəʊ ɒn ə trɪp/,phr.,去旅行,"Our family will go on a trip to Europe next summer.",70
-set up,/set ʌp/,phr.,建立,"We need to set up a meeting to discuss this project.",71
-giant panda,/ˈdʒaɪənt ˈpændə/,phr.,大熊猫,"The giant panda is a national treasure of China.",72
-in the wild,/ɪn ðə waɪld/,phr.,在野外,"It's rare to see tigers in the wild nowadays.",73
-all year round,/ɔːl jɪə raʊnd/,phr.,全年,"The temperature remains mild all year round in this region.",74
-golden monkey,/ˈɡəʊldən ˈmʌŋki/,phr.,金丝猴,"The golden monkey is an endangered species in China.",75
-go hiking,/ɡəʊ ˈhaɪkɪŋ/,phr.,去远足,"We plan to go hiking in the mountains this weekend.",76
-hot spring,/hɒt sprɪŋ/,phr.,温泉,"Japan is famous for its natural hot springs.",77
-branch,/brɑːntʃ/,n.,树枝,"The bird built its nest on a high branch of the tree.",78
-root,/ruːt/,n.,根；根茎,"The roots of this tree go deep into the soil.",79
-silent,/ˈsaɪlənt/,adj.,不说话的；沉默的,"The classroom was silent as students took the exam.",80
-overlook,/ˌəʊvəˈlʊk/,v.,忽略；未注意到,"Don't overlook the importance of daily exercise.",81
-human,/ˈhjuːmən/,n.,人,"Humans have greatly changed the natural environment.",82
-oxygen,/ˈɒksɪdʒən/,n.,氧；氧气,"Plants produce oxygen during photosynthesis.",83
-create,/kriˈeɪt/,v.,创造,"Artists create beautiful works with their imagination.",84
-environment,/ɪnˈvaɪrənmənt/,n.,自然环境,"We should all work to protect our environment.",85
-convenient,/kənˈviːniənt/,adj.,便利的；方便的,"Online shopping is very convenient for busy people.",86
-furniture,/ˈfɜːnɪtʃə(r)/,n.,家具,"They bought new furniture for their apartment.",87
-wood,/wʊd/,n.,木；木头,"This table is made of high-quality wood.",88
-treat,/triːt/,v.,以……态度对待,"We should treat all people with respect.",89
-communicate,/kəˈmjuːnɪkeɪt/,v.,交流；沟通,"It's important to communicate clearly with your team members.",90
-species,/ˈspiːʃiːz/,n.,种；物种,"Many species of animals are in danger of extinction.",91
-product,/ˈprɒdʌkt/,n.,产品；制品,"This company sells organic food products.",92
-side,/saɪd/,n.,一面,"Please write your name on both sides of the paper.",93
-borrow,/ˈbɒrəʊ/,v.,借；借用,"Can I borrow your dictionary for a moment?",94
-dig,/dɪɡ/,v.,掘(地)；凿(洞)；挖(土),"The workers are digging a hole for the new swimming pool.",95
-hole,/həʊl/,n.,洞；孔；坑,"There's a small hole in my sock that needs to be fixed.",96
-stick,/stɪk/,n.,棍；条,"The dog was running around with a stick in its mouth.",97
-accident,/ˈæksɪdənt/,n.,意外；偶然的事,"He had a minor car accident on his way to work.",98
-knowledge,/ˈnɒlɪdʒ/,n.,知识；学问,"Reading books can increase your knowledge in many areas.",99
-character,/ˈkærəktə(r)/,n.,文字,"Chinese characters are beautiful but difficult to learn.",100
-spread,/spred/,v.,传播,"News can spread very quickly on social media.",101
-translation,/trænzˈleɪʃn/,n.,译文；译本,"The translation of this book into Chinese is excellent.",102
-take in,/teɪk ɪn/,phr.,吸收；摄入,"Plants take in carbon dioxide from the air.",103
-greenhouse gas,/ˈɡriːnhaʊs ɡæs/,phr.,温室气体,"Reducing greenhouse gas emissions is important for fighting climate change.",104
-to begin with,/tə bɪˈɡɪn wɪð/,phr.,首先；第一点,"To begin with, let me explain the basic rules of the game.",105
-come from,/kʌm frɒm/,phr.,来自,"These fresh vegetables come from local farms.",106
-look around,/lʊk əˈraʊnd/,phr.,环视；环顾；四下察看,"Let's look around the museum before we leave.",107
-be made of,/bi meɪd ɒv/,phr.,由……制成,"This jacket is made of waterproof material.",108
-for example,/fɔːr ɪɡˈzɑːmpl/,phr.,例如；譬如,"Many animals, for example lions and tigers, are endangered.",109
-communicate with,/kəˈmjuːnɪkeɪt wɪð/,phr.,与……沟通,"It's important to communicate with your teammates during the game.",110
-call on,/kɔːl ɒn/,phr.,号召；动员；要求,"The president called on all citizens to save energy.",111
-according to,/əˈkɔːdɪŋ tuː/,phr.,据(所说)；按(……所报道),"According to the weather forecast, it will rain tomorrow.",112
-by accident,/baɪ ˈæksɪdənt/,phr.,偶然；意外地,"I met my old friend by accident at the supermarket yesterday.",113
-dolphin,/ˈdɒlfɪn/,n.,海豚,"Dolphins are known to be very intelligent marine animals.",114
-hen,/hen/,n.,母鸡,"The hen laid three eggs this morning.",115
-blind,/blaɪnd/,adj.,瞎的；失明的,"Guide dogs help blind people move around safely.",116
-wool,/wʊl/,n.,（羊等的）毛,"This warm sweater is made of pure wool.",117
-sir,/sɜː(r)/,n.,先生,"Excuse me, sir, could you help me with my luggage?",118
-receptionist,/rɪˈsepʃənɪst/,n.,接待员,"The receptionist welcomed us to the hotel.",119
-allow,/əˈlaʊ/,v.,允许进入(或出去、通过),"Dogs are not allowed in this restaurant.",120
-apologize,/əˈpɒlədʒaɪz/,v.,道歉,"I want to apologize for being late to the meeting.",121
-asleep,/əˈsliːp/,adj.,睡着,"The baby fell asleep in her mother's arms.",122
-smoke,/sməʊk/,n.,烟,"There was smoke coming from the kitchen.",123
-fireman,/ˈfaɪəmən/,n.,消防队员,"The fireman rescued the cat from the tree.",124
-type,/taɪp/,n.,类型；种类,"What type of music do you enjoy listening to?",125
-search-and-rescue,/ˌsɜːtʃ ənd ˈreskjuː/,n.,搜索救援,"Search-and-rescue teams were sent to help after the earthquake.",126
-service,/ˈsɜːvɪs/,n.,服务,"This hotel offers excellent service to its guests.",127
-disaster,/dɪˈzɑːstə(r)/,n.,灾难；灾害,"The flood was the worst natural disaster in the region's history.",128
-guest,/ɡest/,n.,旅客；房客,"The hotel can accommodate up to 200 guests.",129
-team,/tiːm/,n.,组；班,"Our team won the basketball competition last week.",130
-transport,/trænˈspɔːt/,v.,运输；运送,"The company transports fresh fruit from farms to supermarkets.",131
-guard,/ɡɑːd/,v.,守卫；保卫,"Soldiers guard the entrance to the palace.",132
-honey,/ˈhʌni/,n.,蜂蜜,"I like to put a little honey in my tea instead of sugar.",133
-material,/məˈtɪəriəl/,n.,材料；原料,"What material is this shirt made of?",134
-either,/ˈaɪðə(r)/,adv.,也,"If you don't go to the party, I won't go either.",135
-shark,/ʃɑːk/,n.,鲨鱼,"Great white sharks are one of the largest predatory fish.",136
-scared,/skeəd/,adj.,害怕；恐惧,"The little boy was scared of the dark.",137
-grey,/ɡreɪ/,adj.,灰色的,"The sky was grey before it started to rain.",138
-somewhere,/ˈsʌmweə(r)/,adv.,在某处；到某处,"I left my keys somewhere in the house.",139
-probably,/ˈprɒbəbli/,adv.,很可能；大概,"It will probably rain tomorrow, so take an umbrella.",140
-source,/sɔːs/,n.,来源；出处,"The river Thames is an important source of water for London.",141
-sometime,/ˈsʌmtaɪm/,adv.,在某时,"Let's meet for coffee sometime next week.",142
-extinct,/ɪkˈstɪŋkt/,adj.,已灭绝的；绝种的,"Dinosaurs became extinct millions of years ago.",143
-effort,/ˈefət/,n.,艰难的尝试；试图,"He made a great effort to finish the project on time.",144
-lead (somebody) to,/liːd ˈsʌmbədi tuː/,phr.,带着(某人)到,"The guide led us to the top of the mountain.",145
-fall asleep,/fɔːl əˈsliːp/,phr.,入睡；睡着,"I often fall asleep while watching TV at night.",146
-get down,/ɡet daʊn/,phr.,俯身；趴下；跪下,"The soldiers were ordered to get down when they heard gunfire.",147
-fire engine,/ˈfaɪər ˈendʒɪn/,phr.,消防车,"The children were excited to see the bright red fire engine.",148
-everyday,/ˈevrɪdeɪ/,adj.,每天的；日常的,"These are everyday problems that many people face.",149
-form,/fɔːm/,n.,类型；种类,"What form of transportation do you use to get to work?",150
-journey,/ˈdʒɜːni/,n.,（尤指长途）旅行,"The journey from Beijing to Shanghai takes about five hours by high-speed train.",151
-drop,/drɒp/,n.,滴；水珠,"There were drops of rain on the window.",152
-tap,/tæp/,n.,水龙头,"Please turn off the tap when you finish washing your hands.",153
-voice,/vɔɪs/,n.,说话声,"I recognized her voice on the phone immediately.",154
-eventually,/ɪˈventʃuəli/,adv.,最后；终于,"After many attempts, he eventually succeeded in solving the problem.",155
-pipe,/paɪp/,n.,管子；管道,"The water flows through pipes beneath the street.",156
-return,/rɪˈtɜːn/,v.,回去；返回,"When do you plan to return to your hometown?",157
-rush,/rʌʃ/,v.,迅速移动,"We had to rush to catch the last bus home.",158
-bath,/bɑːθ/,n.,洗澡；洗浴,"I like to take a hot bath after a long day.",159
-salt,/sɔːlt/,adj.,含盐的；咸的,"The soup tastes too salt; I can't eat it.",160
-brain,/breɪn/,n.,脑,"The human brain is incredibly complex.",161
-fix,/fɪks/,v.,修理,"My father knows how to fix broken electrical appliances.",162
-public,/ˈpʌblɪk/,adj.,公共的；公开的,"The library is a public place that everyone can use.",163
-population,/ˌpɒpjuˈleɪʃn/,n.,人口,"The population of China is over 1.4 billion.",164
-agriculture,/ˈæɡrɪkʌltʃə(r)/,n.,农业,"Agriculture is an important industry in many countries.",165
-trade,/treɪd/,n.,贸易；买卖,"International trade helps countries develop their economies.",166
-industry,/ˈɪndəstri/,n.,工业；生产制造,"The car industry employs thousands of workers.",167
-role,/rəʊl/,n.,角色,"Parents play an important role in a child's education.",168
-goods,/ɡʊdz/,n.,商品；货品,"The shop sells a wide variety of goods.",169
-overseas,/ˌəʊvəˈsiːz/,adv.,在国外；向海外,"My brother is studying overseas for one year.",170
-global,/ˈɡləʊbl/,adj.,全球的；全世界的,"Climate change is a global problem that affects everyone.",171
-income,/ˈɪnkʌm/,n.,收入；收益；所得,"Many people lost their income during the pandemic.",172
-nearly,/ˈnɪəli/,adv.,几乎；差不多；将近,"It's nearly time for dinner; let's set the table.",173
-business,/ˈbɪznəs/,n.,买卖；生意,"My uncle runs a small business selling handmade furniture.",174
-leisure,/ˈleʒə(r)/,n.,闲暇；空闲；休闲,"People need leisure time to relax and enjoy themselves.",175
-throughout,/θruːˈaʊt/,prep.,自始至终；贯穿整个时期,"The music played throughout the night.",176
-duty,/ˈdjuːti/,n.,责任；义务,"It is the duty of all citizens to protect the environment.",177
-speed,/spiːd/,n.,速度；速率,"The car was traveling at a high speed on the highway.",178
-safety,/ˈseɪfti/,n.,安全；平安,"Safety is the most important consideration when working with machinery.",179
-instruction,/ɪnˈstrʌkʃn/,n.,用法说明；操作指南,"Always read the instruction manual before using a new device.",180
-connect,/kəˈnekt/,v.,（使）连接,"This cable connects the printer to the computer.",181
-device,/dɪˈvaɪs/,n.,装置；设备,"This electronic device can translate between different languages.",182
-rule,/ruːl/,n.,规则；条例,"Students must follow school rules at all times.",183
-climate,/ˈklaɪmət/,n.,气候,"Southern China has a warm climate all year round.",184
-amount,/əˈmaʊnt/,n.,数量；数额,"A large amount of money was spent on the new school building.",185
-power,/ˈpaʊə(r)/,v.,驱动；推动(机器或车辆),"This small engine powers the lawn mower.",186
-television set,/ˈtelɪvɪʒn set/,n.,电视机,"Our family bought a new television set last month.",187
-landmark,/ˈlændmɑːk/,n.,地标,"The Eiffel Tower is a famous landmark in Paris.",188
-a bit,/ə bɪt/,phr.,有点儿；稍微,"I'm a bit tired after the long walk.",189
-at once,/æt wʌns/,phr.,立即；马上,"When the fire alarm rang, everyone left the building at once.",190
-drinking water,/ˈdrɪŋkɪŋ ˈwɔːtə(r)/,phr.,饮用水,"Always carry enough drinking water when hiking in hot weather.",191
-play a role in...,/pleɪ ə rəʊl ɪn/,phr.,在……起作用,"Education plays an important role in a country's development.",192
-make sure,/meɪk ʃʊə(r)/,phr.,确保；设法保证,"Please make sure you lock the door when you leave.",193
-battery,/ˈbætəri/,n.,电池,"My phone battery is running low; I need to charge it.",194
-electricity,/ɪˌlekˈtrɪsəti/,n.,电；电能,"This village didn't have electricity until ten years ago.",195
-switch-off,/ˈswɪtʃ ɒf/,adj.,关闭(电灯、机器等)的,"Remember the switch-off time for all electronic devices.",196
-task,/tɑːsk/,n.,任务；活动,"The teacher assigned a difficult task to the students.",197
-while,/waɪl/,n.,一段时间；一会儿,"Let's rest for a while before continuing our journey.",198
-tablet,/ˈtæblət/,n.,平板电脑,"Many students now use tablets instead of textbooks.",199
-fridge,/frɪdʒ/,n.,冰箱,"Please put the milk back in the fridge after use.",200
-yogurt,/ˈjɒɡət/,n.,酸奶,"I like to eat yogurt with fresh fruit for breakfast.",201
-apartment,/əˈpɑːtmənt/,n.,公寓套房,"They live in a small apartment in the city center.",202
-household,/ˈhaʊshəʊld/,adj.,家庭的,"Cleaning is an important household chore.",203
-against,/əˈɡenst/,prep.,紧靠；碰；撞,"He leaned his bicycle against the wall.",204
-have something in common,/hæv ˈsʌmθɪŋ ɪn ˈkɒmən/,phr.,有相同的特征,"Though they look different, the twins have many things in common.",205
-light bulb,/laɪt bʌlb/,phr.,电灯泡,"We need to replace the light bulb in the kitchen.",206
-air conditioner,/eə(r) kənˈdɪʃənə(r)/,phr.,空调机；空调设备,"Turn off the air conditioner when you leave the room.",207
-video game,/ˈvɪdiəʊ ɡeɪm/,phr.,电子游戏,"Some children spend too much time playing video games.",208
-run out of,/rʌn aʊt ɒv/,phr.,用完；耗尽,"We've run out of milk; I need to go to the store.",209
-go bad,/ɡəʊ bæd/,phr.,变质,"Food can go bad quickly in hot weather if not refrigerated.",210
-electric car,/ɪˈlektrɪk kɑː(r)/,phr.,电动汽车,"Electric cars produce less pollution than traditional cars.",211
-electrical appliance,/ɪˈlektrɪkəl əˈplaɪəns/,phr.,电器,"The store sells all kinds of electrical appliances for the home.",212
-care about,/keə(r) əˈbaʊt/,phr.,关注；担忧,"Young people increasingly care about environmental issues.",213
-climate change,/ˈklaɪmət tʃeɪndʒ/,phr.,气候变化,"Climate change affects weather patterns around the world.",214
-join in,/dʒɔɪn ɪn/,phr.,参加；加入,"Everyone is welcome to join in the school's sports activities.",215
-contribution,/ˌkɒntrɪˈbjuːʃn/,n.,贡献,"She made an important contribution to medical research.",216
-hero,/ˈhɪərəʊ/,n.,英雄,"Firefighters are heroes who save people from burning buildings.",217
-pioneer,/ˌpaɪəˈnɪə(r)/,n.,先锋；先驱,"Marie Curie was a pioneer in the field of radioactivity.",218
-technology,/tekˈnɒlədʒi/,n.,科技,"Modern technology has changed the way we communicate.",219
-receive,/rɪˈsiːv/,v.,拿到；接到；收到,"I received an email from my teacher this morning.",220
-engineering,/ˌendʒɪˈnɪərɪŋ/,n.,工程学,"My brother is studying engineering at university.",221
-award,/əˈwɔːd/,v.,授予；奖励,"The president will award medals to the Olympic champions.",222
-award,/əˈwɔːd/,n.,奖,"She won an award for her outstanding performance in the competition.",223
-education,/ˌedʒuˈkeɪʃn/,n.,教育,"Everyone has the right to receive education.",224
-spend,/spend/,v.,花(时间)；度过,"I like to spend time with my family on weekends.",225
-research,/rɪˈsɜːtʃ/,n.,研究；调查,"Scientists conduct research to find cures for diseases.",226
-achieve,/əˈtʃiːv/,v.,（凭长期努力）达到,"With hard work, you can achieve your goals.",227
-well-respected,/ˌwel rɪˈspektɪd/,adj.,受尊敬的,"She is a well-respected doctor in our community.",228
-found,/faʊnd/,v.,建立(城镇或国家),"The university was founded in 1898.",229
-eager,/ˈiːɡə(r)/,adj.,热切的；渴望的,"The children were eager to open their presents.",230
-raise,/reɪz/,v.,增加；提高,"The company plans to raise salaries next year.",231
-mission,/ˈmɪʃn/,n.,使命,"The mission of this organization is to protect endangered animals.",232
-honour,/ˈɒnə(r)/,n.,荣誉；名誉,"It is a great honour to receive this award.",233
-public,/ˈpʌblɪk/,n.,百姓；民众,"The public has the right to know about government decisions.",234
-approval,/əˈpruːvl/,n.,赞成；同意,"The plan received approval from the city council.",235
-praise,/preɪz/,n.,赞扬；称赞；赞美,"The teacher gave praise to students who worked hard.",236
-society,/səˈsaɪəti/,n.,社会,"Technology has transformed modern society.",237
-female,/ˈfiːmeɪl/,adj.,女的；女性的,"Marie Curie was a famous female scientist.",238
-admire,/ədˈmaɪə/,v.,钦佩；仰慕,"I admire people who stand up for what they believe in.",239
-inspire,/ɪnˈspaɪə/,v.,激励；鼓舞,"Great teachers inspire their students to learn.",240
-regular,/ˈreɡjələ(r)/,adj.,通常的；平常的,"We have regular meetings every Monday morning.",241
-feed,/fiːd/,v.,养活；提供食物,"Parents work hard to feed and care for their children.",242
-smokejumper,/ˈsməʊkˌdʒʌmpə(r)/,n.,空降消防员,"Smokejumpers parachute into remote areas to fight wildfires.",243
-thick,/θɪk/,adj.,茂密的,"The forest was so thick that we could hardly see the sky.",244
-certain,/ˈsɜːtn/,adj.,某个；特定的,"There are certain rules that everyone must follow.",245
-kill,/kɪl/,v.,杀死；导致死亡,"Smoking can kill and cause serious health problems.",246
-tool,/tuːl/,n.,工具,"You will need special tools to fix this device.",247
-dead,/ded/,adj.,失去生命的；枯萎的,"The flowers were dead due to lack of water.",248
-brave,/breɪv/,adj.,勇敢的；无畏的,"Firefighters are brave people who risk their lives to save others.",249
-tough,/tʌf/,adj.,健壮的；坚韧不拔的,"Football players need to be tough to handle physical contact.",250
-fit,/fɪt/,adj.,健壮的；健康的,"Regular exercise helps you stay fit and healthy.",251
-otherwise,/ˈʌðəwaɪz/,adv.,否则；不然,"Hurry up, otherwise we'll miss the train.",252
-survive,/səˈvaɪv/,v.,生存；存活,"Few plants can survive in the desert without water.",253
-proud,/praʊd/,adj.,骄傲的；自豪的,"Parents are proud when their children do well in school.",254
-role model,/rəʊl ˈmɒdl/,phr.,楷模；行为榜样,"Many young people see their favorite athletes as role models.",255
-in the field of,/ɪn ðə fiːld ɒv/,phr.,在……领域,"She is an expert in the field of marine biology.",256
-devote yourself to,/dɪˈvəʊt jɔːˈself tuː/,phr.,献身；致力,"She devoted herself to helping children with special needs.",257
-college entrance examination,/ˈkɒlɪdʒ ˈentrəns ɪɡˌzæmɪˈneɪʃn/,phr.,大学入学考试,"Students work hard to prepare for the college entrance examination.",258
-look up to,/lʊk ʌp tuː/,phr.,敬仰；钦佩,"Children often look up to their parents and teachers.",259
-sugar pill,/ˈʃʊɡə pɪl/,phr.,糖丸,"Some patients feel better after taking sugar pills even though they contain no medicine.",260
-chief engineer,/tʃiːf ˌendʒɪˈnɪə(r)/,phr.,总工程师,"The chief engineer is responsible for all technical aspects of the project.",261
-put out,/pʊt aʊt/,phr.,熄灭；扑灭,"The firefighters worked quickly to put out the forest fire.",262
-be able to,/bi ˈeɪbl tuː/,phr.,能够,"After years of practice, she is able to play the piano beautifully.",263
-be proud of,/bi praʊd ɒv/,phr.,为……而自豪,"I am proud of my son's achievements at school.",264
-possible,/ˈpɒsəbl/,adj.,可能,"Is it possible to finish this work by tomorrow?",265
-athlete,/ˈæθliːt/,n.,运动员,"Professional athletes train for many hours every day.",266
-biologist,/baɪˈɒlədʒɪst/,n.,生物学家,"The biologist is studying the behavior of sea turtles.",267
-instrument,/ˈɪnstrəmənt/,n.,乐器；仪器,"The violin is a difficult instrument to learn.",268
-interest,/ˈɪntrəst/,n.,兴趣；业余爱好,"Reading is one of my main interests.",269
-career,/kəˈrɪə(r)/,n.,生涯；职业,"She has had a successful career as a doctor.",270
-lifetime,/ˈlaɪftaɪm/,n.,一生；终身,"People can learn new skills throughout their lifetime.",271
-diamond,/ˈdaɪəmənd/,n.,钻石,"She received a beautiful diamond ring for her engagement.",272
-belt,/belt/,n.,腰带,"Always wear your seat belt when driving.",273
-shoot,/ʃuːt/,v.,冲；奔；飞驰,"The children shoot out of the classroom when the bell rings.",274
-extremely,/ɪkˈstriːmli/,adv.,极其；极端；非常,"The test was extremely difficult; few students passed.",275
-curious,/ˈkjʊəriəs/,adj.,求知欲强的；好奇的,"Children are naturally curious about the world around them.",276
-increase,/ɪnˈkriːs/,v.,增长；增多；增加,"The population of the city has increased rapidly in recent years.",277
-host,/həʊst/,v.,主持,"She will host a dinner party for her colleagues next week.",278
-beyond,/bɪˈjɒnd/,adv.,在另一边；在(或向)更远处,"The children ran beyond the playground into the fields.",279
-audience,/ˈɔːdiəns/,n.,观众；听众,"The audience applauded loudly at the end of the performance.",280
-lively,/ˈlaɪvli/,adj.,充满趣味的；令人兴奋的,"The market is a lively place with many shops and people.",281
-actually,/ˈæktʃuəli/,adv.,事实上,"I thought the movie would be boring, but actually it was quite interesting.",282
-sail,/seɪl/,v.,驾驶(或乘坐)帆船航行,"We plan to sail around the island during our vacation.",283
-ability,/əˈbɪləti/,n.,才能；本领,"She has a natural ability for learning languages.",284
-review,/rɪˈvjuː/,n.,评论,"The film received positive reviews from most critics.",285
-lecture,/ˈlektʃə(r)/,n.,讲座；讲课；演讲,"The professor gave an interesting lecture on ancient civilizations.",286
-perform,/pəˈfɔːm/,v.,演出；表演,"The students will perform a play for the school festival.",287
-kiss,/kɪs/,n.,吻,"She gave her mother a kiss goodbye before leaving.",288
-hug,/hʌɡ/,n.,拥抱；搂抱,"A warm hug can make you feel better when you're sad.",289
-method,/ˈmeθəd/,n.,方法；办法,"Scientists use different methods to test their theories.",290
-compare,/kəmˈpeə(r)/,v.,将……比作,"The teacher asked us to compare the two poems and find similarities.",291
-body language,/ˈbɒdi ˈlæŋɡwɪdʒ/,phr.,肢体语言,"You can often tell how someone feels by their body language.",292
-dream of,/driːm ɒv/,phr.,梦想,"Many young people dream of becoming famous one day.",293
-come true,/kʌm truː/,phr.,实现；成为现实,"Her dream of becoming a doctor finally came true.",294
-human being,/ˈhjuːmən ˈbiːɪŋ/,n.,人,"Every human being has the right to clean water and food.",295
-nowadays,/ˈnaʊədeɪz/,adv.,现今；现在,"Nowadays, most people have mobile phones.",296
-go outside,/ɡəʊ ˈaʊtsaɪd/,phr.,外出,"Children should go outside and play rather than watching TV all day.",297
-more and more,/mɔːr ænd mɔː(r)/,phr.,越来越多,"More and more people are choosing to work from home.",298
+word,phonetic_symbol,part_of_speech,chinese_meaning,example_sentence
+advice,/ədˈvaɪs/,n.,建议,"She gave me some good advice about my studies."
+encourage,/ɪnˈkʌrɪdʒ/,v.,鼓励；激励,"My parents always encourage me to try new things."
+retire,/rɪˈtaɪə(r)/,v.,退职；退休,"My grandfather plans to retire next year after working for 40 years."
+cheerful,/ˈtʃɪəf(ə)l/,adj.,快乐的；高兴的,"She has a cheerful personality and always makes people smile."
+community,/kəˈmjuːnəti/,n.,社区,"Our community organizes activities for children every weekend."
+medical,/ˈmedɪkl/,adj.,医学的；医疗的,"He is studying at a medical school to become a doctor."
+fried,/fraɪd/,adj.,油炸的；油煎的；油炒的,"I prefer fried rice rather than steamed rice."
+wherever,/weərˈevə(r)/,conj.,各处；处处,"You can find happiness wherever you go."
+future,/ˈfjuːtʃə(r)/,n.,将来；未来,"In the future, I want to be a scientist."
+soon,/suːn/,adv.,很快；马上；不久,"The bus will arrive soon, please wait here."
+smart,/smɑːt/,adj.,聪明的；机敏的,"She is very smart and always gets top grades in math."
+attention,/əˈtenʃn/,n.,专心；注意力,"Please pay attention to the teacher during the lesson."
+seldom,/ˈseldəm/,adv.,不常；很少；难得,"He seldom goes to the cinema these days."
+bored,/bɔːd/,adj.,厌倦的；烦闷的,"I was bored during the long meeting yesterday."
+strict,/strɪkt/,adj.,要求严格的；严厉的,"My father is strict about my study habits."
+relative,/ˈrelətɪv/,n.,亲戚；亲属,"Many of my relatives will come to visit during the Spring Festival."
+uniform,/ˈjuːnɪfɔːm/,n.,制服；校服,"All students in our school wear the same uniform."
+personality,/ˌpɜːsəˈnæləti/,n.,性格；个性,"She has a friendly personality and gets along with everyone."
+characteristic,/ˌkærəktəˈrɪstɪk/,n.,特点；品质,"One characteristic of dolphins is their intelligence."
+topic,/ˈtɒpɪk/,n.,话题；标题,"Our discussion topic for today is environmental protection."
+active,/ˈæktɪv/,adj.,忙碌的；活跃的,"She is very active in school clubs and sports teams."
+smartphone,/ˈsmɑːtfəʊn/,n.,智能手机,"Most teenagers now have a smartphone for communication."
+wisely,/ˈwaɪzli/,adv.,聪明地；明智地,"He wisely saved some money for future education."
+competition,/ˌkɒmpəˈtɪʃn/,n.,比赛；竞赛,"Our school will participate in the music competition next month."
+shower,/ˈʃaʊə(r)/,n.,淋浴,"I always take a shower after exercise."
+online,/ˌɒnˈlaɪn/,adj.,在线的,"Many students take online courses during the pandemic."
+site,/saɪt/,n.,建筑工地,"The construction site is closed on weekends."
+narrow,/ˈnærəʊ/,adj.,狭窄的；窄小的,"The road to the village is very narrow and difficult to drive on."
+superman,/ˈsuːpəmæn/,n.,超人,"Many children dream of being as strong as superman."
+give up,/ɡɪv ʌp/,phr.,认输；放弃,"Don't give up when you face difficulties in your studies."
+used to,/juːzd tuː/,phr.,曾经,"I used to play the piano when I was young."
+in the future,/ɪn ðə ˈfjuːtʃə(r)/,phr.,在未来,"In the future, I want to become a doctor."
+be strict about,/bi strɪkt əˈbaʊt/,phr.,对……要求严格,"My teacher is strict about homework deadlines."
+be worried about,/bi ˈwʌrid əˈbaʊt/,phr.,担心,"My mother is always worried about my health."
+wine,/waɪn/,n.,葡萄酒,"This restaurant serves excellent wine with dinner."
+match,/mætʃ/,v.,配对,"Can you match the English words with their Chinese meanings?"
+rich,/rɪtʃ/,adj.,丰富多彩的,"China has a rich culture with many traditions."
+lie,/laɪ/,v.,位于；坐落在,"The city lies between two mountains."
+café,/ˈkæfeɪ/,n.,咖啡馆；小餐馆,"We often meet at the café near our school."
+excellent,/ˈeksələnt/,adj.,优秀的；极好的,"She received excellent marks on her English test."
+coast,/kəʊst/,n.,海岸；海滨,"We spent our summer vacation on the coast of Hainan."
+perfect,/ˈpɜːfɪkt/,adj.,正合适,"This sweater is perfect for cold winter days."
+mostly,/ˈməʊstli/,adv.,主要地；通常,"The students in our class are mostly from Beijing."
+receive,/rɪˈsiːv/,v.,接待；招待,"The hotel staff received us warmly when we arrived."
+key,/kiː/,adj.,主要的；关键的,"Education is a key factor in a child's development."
+remain,/rɪˈmeɪn/,v.,仍然是；保持不变,"Despite all the changes, some traditions remain the same."
+lift,/lɪft/,n.,电梯；升降机,"We took the lift to the tenth floor of the building."
+step,/step/,n.,台阶,"Be careful when you go up these steps as they are quite steep."
+stair,/steə(r)/,n.,楼梯,"The old house has a beautiful wooden stair leading to the second floor."
+motorcycle,/ˈməʊtəsaɪkl/,n.,摩托车,"My brother rides a motorcycle to work every day."
+sightseeing,/ˈsaɪtsiːɪŋ/,n.,观光；游览,"We spent the day sightseeing in the ancient city."
+imagine,/ɪˈmædʒɪn/,v.,想象；设想,"Can you imagine what life will be like in 100 years?"
+destination,/ˌdestɪˈneɪʃn/,n.,目的地；终点,"Paris is a popular tourist destination for people all over the world."
+address,/əˈdres/,n.,住址；地址,"Please write your full address on this form."
+government,/ˈɡʌvənmənt/,n.,政府,"The government has announced new policies for education."
+unique,/juˈniːk/,adj.,独特的；罕见的,"Every person has a unique set of fingerprints."
+endangered,/ɪnˈdeɪndʒəd/,adj.,濒危的,"Giant pandas are no longer an endangered species."
+stretch,/stretʃ/,v.,延伸；绵延,"The Great Wall stretches for thousands of kilometers."
+huge,/hjuːdʒ/,adj.,巨大的；极多的,"There was a huge crowd at the concert last night."
+wild,/waɪld/,adj.,野的；野生的,"There are still some wild elephants living in the forest."
+discover,/dɪˈskʌvə(r)/,v.,了解到；查明,"Scientists discover new species of animals every year."
+volcano,/vɒlˈkeɪnəʊ/,n.,火山,"The volcano has been dormant for over 100 years."
+range,/reɪndʒ/,n.,山脉,"The Himalayas is the highest mountain range in the world."
+snowmobile,/ˈsnəʊməbiːl/,n.,雪地机动车,"In winter, many people use snowmobiles to travel in snowy areas."
+wolf,/wʊlf/,n.,狼,"Wolves usually hunt in packs at night."
+department store,/dɪˈpɑːtmənt stɔː/,phr.,百货商店,"We bought Christmas gifts at the department store downtown."
+prefer to,/prɪˈfɜː tuː/,phr.,更喜欢,"I prefer to study in the morning when my mind is fresh."
+by hand,/baɪ hænd/,phr.,用手工,"This beautiful sweater was made by hand."
+go sightseeing,/ɡəʊ ˈsaɪtsiːɪŋ/,phr.,去观光,"We plan to go sightseeing in the old town tomorrow."
+go on a trip,/ɡəʊ ɒn ə trɪp/,phr.,去旅行,"Our family will go on a trip to Europe next summer."
+set up,/set ʌp/,phr.,建立,"We need to set up a meeting to discuss this project."
+giant panda,/ˈdʒaɪənt ˈpændə/,phr.,大熊猫,"The giant panda is a national treasure of China."
+in the wild,/ɪn ðə waɪld/,phr.,在野外,"It's rare to see tigers in the wild nowadays."
+all year round,/ɔːl jɪə raʊnd/,phr.,全年,"The temperature remains mild all year round in this region."
+golden monkey,/ˈɡəʊldən ˈmʌŋki/,phr.,金丝猴,"The golden monkey is an endangered species in China."
+go hiking,/ɡəʊ ˈhaɪkɪŋ/,phr.,去远足,"We plan to go hiking in the mountains this weekend."
+hot spring,/hɒt sprɪŋ/,phr.,温泉,"Japan is famous for its natural hot springs."
+branch,/brɑːntʃ/,n.,树枝,"The bird built its nest on a high branch of the tree."
+root,/ruːt/,n.,根；根茎,"The roots of this tree go deep into the soil."
+silent,/ˈsaɪlənt/,adj.,不说话的；沉默的,"The classroom was silent as students took the exam."
+overlook,/ˌəʊvəˈlʊk/,v.,忽略；未注意到,"Don't overlook the importance of daily exercise."
+human,/ˈhjuːmən/,n.,人,"Humans have greatly changed the natural environment."
+oxygen,/ˈɒksɪdʒən/,n.,氧；氧气,"Plants produce oxygen during photosynthesis."
+create,/kriˈeɪt/,v.,创造,"Artists create beautiful works with their imagination."
+environment,/ɪnˈvaɪrənmənt/,n.,自然环境,"We should all work to protect our environment."
+convenient,/kənˈviːniənt/,adj.,便利的；方便的,"Online shopping is very convenient for busy people."
+furniture,/ˈfɜːnɪtʃə(r)/,n.,家具,"They bought new furniture for their apartment."
+wood,/wʊd/,n.,木；木头,"This table is made of high-quality wood."
+treat,/triːt/,v.,以……态度对待,"We should treat all people with respect."
+communicate,/kəˈmjuːnɪkeɪt/,v.,交流；沟通,"It's important to communicate clearly with your team members."
+species,/ˈspiːʃiːz/,n.,种；物种,"Many species of animals are in danger of extinction."
+product,/ˈprɒdʌkt/,n.,产品；制品,"This company sells organic food products."
+side,/saɪd/,n.,一面,"Please write your name on both sides of the paper."
+borrow,/ˈbɒrəʊ/,v.,借；借用,"Can I borrow your dictionary for a moment?"
+dig,/dɪɡ/,v.,掘(地)；凿(洞)；挖(土),"The workers are digging a hole for the new swimming pool."
+hole,/həʊl/,n.,洞；孔；坑,"There's a small hole in my sock that needs to be fixed."
+stick,/stɪk/,n.,棍；条,"The dog was running around with a stick in its mouth."
+accident,/ˈæksɪdənt/,n.,意外；偶然的事,"He had a minor car accident on his way to work."
+knowledge,/ˈnɒlɪdʒ/,n.,知识；学问,"Reading books can increase your knowledge in many areas."
+character,/ˈkærəktə(r)/,n.,文字,"Chinese characters are beautiful but difficult to learn."
+spread,/spred/,v.,传播,"News can spread very quickly on social media."
+translation,/trænzˈleɪʃn/,n.,译文；译本,"The translation of this book into Chinese is excellent."
+take in,/teɪk ɪn/,phr.,吸收；摄入,"Plants take in carbon dioxide from the air."
+greenhouse gas,/ˈɡriːnhaʊs ɡæs/,phr.,温室气体,"Reducing greenhouse gas emissions is important for fighting climate change."
+to begin with,/tə bɪˈɡɪn wɪð/,phr.,首先；第一点,"To begin with, let me explain the basic rules of the game."
+come from,/kʌm frɒm/,phr.,来自,"These fresh vegetables come from local farms."
+look around,/lʊk əˈraʊnd/,phr.,环视；环顾；四下察看,"Let's look around the museum before we leave."
+be made of,/bi meɪd ɒv/,phr.,由……制成,"This jacket is made of waterproof material."
+for example,/fɔːr ɪɡˈzɑːmpl/,phr.,例如；譬如,"Many animals, for example lions and tigers, are endangered."
+communicate with,/kəˈmjuːnɪkeɪt wɪð/,phr.,与……沟通,"It's important to communicate with your teammates during the game."
+call on,/kɔːl ɒn/,phr.,号召；动员；要求,"The president called on all citizens to save energy."
+according to,/əˈkɔːdɪŋ tuː/,phr.,据(所说)；按(……所报道),"According to the weather forecast, it will rain tomorrow."
+by accident,/baɪ ˈæksɪdənt/,phr.,偶然；意外地,"I met my old friend by accident at the supermarket yesterday."
+dolphin,/ˈdɒlfɪn/,n.,海豚,"Dolphins are known to be very intelligent marine animals."
+hen,/hen/,n.,母鸡,"The hen laid three eggs this morning."
+blind,/blaɪnd/,adj.,瞎的；失明的,"Guide dogs help blind people move around safely."
+wool,/wʊl/,n.,（羊等的）毛,"This warm sweater is made of pure wool."
+sir,/sɜː(r)/,n.,先生,"Excuse me, sir, could you help me with my luggage?"
+receptionist,/rɪˈsepʃənɪst/,n.,接待员,"The receptionist welcomed us to the hotel."
+allow,/əˈlaʊ/,v.,允许进入(或出去、通过),"Dogs are not allowed in this restaurant."
+apologize,/əˈpɒlədʒaɪz/,v.,道歉,"I want to apologize for being late to the meeting."
+asleep,/əˈsliːp/,adj.,睡着,"The baby fell asleep in her mother's arms."
+smoke,/sməʊk/,n.,烟,"There was smoke coming from the kitchen."
+fireman,/ˈfaɪəmən/,n.,消防队员,"The fireman rescued the cat from the tree."
+type,/taɪp/,n.,类型；种类,"What type of music do you enjoy listening to?"
+search-and-rescue,/ˌsɜːtʃ ənd ˈreskjuː/,n.,搜索救援,"Search-and-rescue teams were sent to help after the earthquake."
+service,/ˈsɜːvɪs/,n.,服务,"This hotel offers excellent service to its guests."
+disaster,/dɪˈzɑːstə(r)/,n.,灾难；灾害,"The flood was the worst natural disaster in the region's history."
+guest,/ɡest/,n.,旅客；房客,"The hotel can accommodate up to 200 guests."
+team,/tiːm/,n.,组；班,"Our team won the basketball competition last week."
+transport,/trænˈspɔːt/,v.,运输；运送,"The company transports fresh fruit from farms to supermarkets."
+guard,/ɡɑːd/,v.,守卫；保卫,"Soldiers guard the entrance to the palace."
+honey,/ˈhʌni/,n.,蜂蜜,"I like to put a little honey in my tea instead of sugar."
+material,/məˈtɪəriəl/,n.,材料；原料,"What material is this shirt made of?"
+either,/ˈaɪðə(r)/,adv.,也,"If you don't go to the party, I won't go either."
+shark,/ʃɑːk/,n.,鲨鱼,"Great white sharks are one of the largest predatory fish."
+scared,/skeəd/,adj.,害怕；恐惧,"The little boy was scared of the dark."
+grey,/ɡreɪ/,adj.,灰色的,"The sky was grey before it started to rain."
+somewhere,/ˈsʌmweə(r)/,adv.,在某处；到某处,"I left my keys somewhere in the house."
+probably,/ˈprɒbəbli/,adv.,很可能；大概,"It will probably rain tomorrow, so take an umbrella."
+source,/sɔːs/,n.,来源；出处,"The river Thames is an important source of water for London."
+sometime,/ˈsʌmtaɪm/,adv.,在某时,"Let's meet for coffee sometime next week."
+extinct,/ɪkˈstɪŋkt/,adj.,已灭绝的；绝种的,"Dinosaurs became extinct millions of years ago."
+effort,/ˈefət/,n.,艰难的尝试；试图,"He made a great effort to finish the project on time."
+lead (somebody) to,/liːd ˈsʌmbədi tuː/,phr.,带着(某人)到,"The guide led us to the top of the mountain."
+fall asleep,/fɔːl əˈsliːp/,phr.,入睡；睡着,"I often fall asleep while watching TV at night."
+get down,/ɡet daʊn/,phr.,俯身；趴下；跪下,"The soldiers were ordered to get down when they heard gunfire."
+fire engine,/ˈfaɪər ˈendʒɪn/,phr.,消防车,"The children were excited to see the bright red fire engine."
+everyday,/ˈevrɪdeɪ/,adj.,每天的；日常的,"These are everyday problems that many people face."
+form,/fɔːm/,n.,类型；种类,"What form of transportation do you use to get to work?"
+journey,/ˈdʒɜːni/,n.,（尤指长途）旅行,"The journey from Beijing to Shanghai takes about five hours by high-speed train."
+drop,/drɒp/,n.,滴；水珠,"There were drops of rain on the window."
+tap,/tæp/,n.,水龙头,"Please turn off the tap when you finish washing your hands."
+voice,/vɔɪs/,n.,说话声,"I recognized her voice on the phone immediately."
+eventually,/ɪˈventʃuəli/,adv.,最后；终于,"After many attempts, he eventually succeeded in solving the problem."
+pipe,/paɪp/,n.,管子；管道,"The water flows through pipes beneath the street."
+return,/rɪˈtɜːn/,v.,回去；返回,"When do you plan to return to your hometown?"
+rush,/rʌʃ/,v.,迅速移动,"We had to rush to catch the last bus home."
+bath,/bɑːθ/,n.,洗澡；洗浴,"I like to take a hot bath after a long day."
+salt,/sɔːlt/,adj.,含盐的；咸的,"The soup tastes too salt; I can't eat it."
+brain,/breɪn/,n.,脑,"The human brain is incredibly complex."
+fix,/fɪks/,v.,修理,"My father knows how to fix broken electrical appliances."
+public,/ˈpʌblɪk/,adj.,公共的；公开的,"The library is a public place that everyone can use."
+population,/ˌpɒpjuˈleɪʃn/,n.,人口,"The population of China is over 1.4 billion."
+agriculture,/ˈæɡrɪkʌltʃə(r)/,n.,农业,"Agriculture is an important industry in many countries."
+trade,/treɪd/,n.,贸易；买卖,"International trade helps countries develop their economies."
+industry,/ˈɪndəstri/,n.,工业；生产制造,"The car industry employs thousands of workers."
+role,/rəʊl/,n.,角色,"Parents play an important role in a child's education."
+goods,/ɡʊdz/,n.,商品；货品,"The shop sells a wide variety of goods."
+overseas,/ˌəʊvəˈsiːz/,adv.,在国外；向海外,"My brother is studying overseas for one year."
+global,/ˈɡləʊbl/,adj.,全球的；全世界的,"Climate change is a global problem that affects everyone."
+income,/ˈɪnkʌm/,n.,收入；收益；所得,"Many people lost their income during the pandemic."
+nearly,/ˈnɪəli/,adv.,几乎；差不多；将近,"It's nearly time for dinner; let's set the table."
+business,/ˈbɪznəs/,n.,买卖；生意,"My uncle runs a small business selling handmade furniture."
+leisure,/ˈleʒə(r)/,n.,闲暇；空闲；休闲,"People need leisure time to relax and enjoy themselves."
+throughout,/θruːˈaʊt/,prep.,自始至终；贯穿整个时期,"The music played throughout the night."
+duty,/ˈdjuːti/,n.,责任；义务,"It is the duty of all citizens to protect the environment."
+speed,/spiːd/,n.,速度；速率,"The car was traveling at a high speed on the highway."
+safety,/ˈseɪfti/,n.,安全；平安,"Safety is the most important consideration when working with machinery."
+instruction,/ɪnˈstrʌkʃn/,n.,用法说明；操作指南,"Always read the instruction manual before using a new device."
+connect,/kəˈnekt/,v.,（使）连接,"This cable connects the printer to the computer."
+device,/dɪˈvaɪs/,n.,装置；设备,"This electronic device can translate between different languages."
+rule,/ruːl/,n.,规则；条例,"Students must follow school rules at all times."
+climate,/ˈklaɪmət/,n.,气候,"Southern China has a warm climate all year round."
+amount,/əˈmaʊnt/,n.,数量；数额,"A large amount of money was spent on the new school building."
+power,/ˈpaʊə(r)/,v.,驱动；推动(机器或车辆),"This small engine powers the lawn mower."
+television set,/ˈtelɪvɪʒn set/,n.,电视机,"Our family bought a new television set last month."
+landmark,/ˈlændmɑːk/,n.,地标,"The Eiffel Tower is a famous landmark in Paris."
+a bit,/ə bɪt/,phr.,有点儿；稍微,"I'm a bit tired after the long walk."
+at once,/æt wʌns/,phr.,立即；马上,"When the fire alarm rang, everyone left the building at once."
+drinking water,/ˈdrɪŋkɪŋ ˈwɔːtə(r)/,phr.,饮用水,"Always carry enough drinking water when hiking in hot weather."
+play a role in...,/pleɪ ə rəʊl ɪn/,phr.,在……起作用,"Education plays an important role in a country's development."
+make sure,/meɪk ʃʊə(r)/,phr.,确保；设法保证,"Please make sure you lock the door when you leave."
+battery,/ˈbætəri/,n.,电池,"My phone battery is running low; I need to charge it."
+electricity,/ɪˌlekˈtrɪsəti/,n.,电；电能,"This village didn't have electricity until ten years ago."
+switch-off,/ˈswɪtʃ ɒf/,adj.,关闭(电灯、机器等)的,"Remember the switch-off time for all electronic devices."
+task,/tɑːsk/,n.,任务；活动,"The teacher assigned a difficult task to the students."
+while,/waɪl/,n.,一段时间；一会儿,"Let's rest for a while before continuing our journey."
+tablet,/ˈtæblət/,n.,平板电脑,"Many students now use tablets instead of textbooks."
+fridge,/frɪdʒ/,n.,冰箱,"Please put the milk back in the fridge after use."
+yogurt,/ˈjɒɡət/,n.,酸奶,"I like to eat yogurt with fresh fruit for breakfast."
+apartment,/əˈpɑːtmənt/,n.,公寓套房,"They live in a small apartment in the city center."
+household,/ˈhaʊshəʊld/,adj.,家庭的,"Cleaning is an important household chore."
+against,/əˈɡenst/,prep.,紧靠；碰；撞,"He leaned his bicycle against the wall."
+have something in common,/hæv ˈsʌmθɪŋ ɪn ˈkɒmən/,phr.,有相同的特征,"Though they look different, the twins have many things in common."
+light bulb,/laɪt bʌlb/,phr.,电灯泡,"We need to replace the light bulb in the kitchen."
+air conditioner,/eə(r) kənˈdɪʃənə(r)/,phr.,空调机；空调设备,"Turn off the air conditioner when you leave the room."
+video game,/ˈvɪdiəʊ ɡeɪm/,phr.,电子游戏,"Some children spend too much time playing video games."
+run out of,/rʌn aʊt ɒv/,phr.,用完；耗尽,"We've run out of milk; I need to go to the store."
+go bad,/ɡəʊ bæd/,phr.,变质,"Food can go bad quickly in hot weather if not refrigerated."
+electric car,/ɪˈlektrɪk kɑː(r)/,phr.,电动汽车,"Electric cars produce less pollution than traditional cars."
+electric appliance,/ɪˈlektrɪkəl əˈplaɪəns/,phr.,电器,"The store sells all kinds of electrical appliances for the home."
+care about,/keə(r) əˈbaʊt/,phr.,关注；担忧,"Young people increasingly care about environmental issues."
+climate change,/ˈklaɪmət tʃeɪndʒ/,phr.,气候变化,"Climate change affects weather patterns around the world."
+join in,/dʒɔɪn ɪn/,phr.,参加；加入,"Everyone is welcome to join in the school's sports activities."
+contribution,/ˌkɒntrɪˈbjuːʃn/,n.,贡献,"She made an important contribution to medical research."
+hero,/ˈhɪərəʊ/,n.,英雄,"Firefighters are heroes who save people from burning buildings."
+pioneer,/ˌpaɪəˈnɪə(r)/,n.,先锋；先驱,"Marie Curie was a pioneer in the field of radioactivity."
+technology,/tekˈnɒlədʒi/,n.,科技,"Modern technology has changed the way we communicate."
+receive,/rɪˈsiːv/,v.,拿到；接到；收到,"I received an email from my teacher this morning."
+engineering,/ˌendʒɪˈnɪərɪŋ/,n.,工程学,"My brother is studying engineering at university."
+award,/əˈwɔːd/,"v.;n.","[授予;奖励]；奖","The president will award medals to the Olympic champions."
+education,/ˌedʒuˈkeɪʃn/,n.,教育,"Everyone has the right to receive education."
+spend,/spend/,v.,花(时间)；度过,"I like to spend time with my family on weekends."
+research,/rɪˈsɜːtʃ/,n.,研究；调查,"Scientists conduct research to find cures for diseases."
+achieve,/əˈtʃiːv/,v.,（凭长期努力）达到,"With hard work, you can achieve your goals."
+well-respected,/ˌwel rɪˈspektɪd/,adj.,受尊敬的,"She is a well-respected doctor in our community."
+found,/faʊnd/,v.,建立(城镇或国家),"The university was founded in 1898."
+eager,/ˈiːɡə(r)/,adj.,热切的；渴望的,"The children were eager to open their presents."
+raise,/reɪz/,v.,增加；提高,"The company plans to raise salaries next year."
+mission,/ˈmɪʃn/,n.,使命,"The mission of this organization is to protect endangered animals."
+honour,/ˈɒnə(r)/,n.,荣誉；名誉,"It is a great honour to receive this award."
+public,/ˈpʌblɪk/,n.,百姓；民众,"The public has the right to know about government decisions."
+approval,/əˈpruːvl/,n.,赞成；同意,"The plan received approval from the city council."
+praise,/preɪz/,n.,赞扬；称赞；赞美,"The teacher gave praise to students who worked hard."
+society,/səˈsaɪəti/,n.,社会,"Technology has transformed modern society."
+female,/ˈfiːmeɪl/,adj.,女的；女性的,"Marie Curie was a famous female scientist."
+admire,/ədˈmaɪə/,v.,钦佩；仰慕,"I admire people who stand up for what they believe in."
+inspire,/ɪnˈspaɪə/,v.,激励；鼓舞,"Great teachers inspire their students to learn."
+regular,/ˈreɡjələ(r)/,adj.,通常的；平常的,"We have regular meetings every Monday morning."
+feed,/fiːd/,v.,养活；提供食物,"Parents work hard to feed and care for their children."
+smokejumper,/ˈsməʊkˌdʒʌmpə(r)/,n.,空降消防员,"Smokejumpers parachute into remote areas to fight wildfires."
+thick,/θɪk/,adj.,茂密的,"The forest was so thick that we could hardly see the sky."
+certain,/ˈsɜːtn/,adj.,某个；特定的,"There are certain rules that everyone must follow."
+kill,/kɪl/,v.,杀死；导致死亡,"Smoking can kill and cause serious health problems."
+tool,/tuːl/,n.,工具,"You will need special tools to fix this device."
+dead,/ded/,adj.,失去生命的；枯萎的,"The flowers were dead due to lack of water."
+brave,/breɪv/,adj.,勇敢的；无畏的,"Firefighters are brave people who risk their lives to save others."
+tough,/tʌf/,adj.,健壮的；坚韧不拔的,"Football players need to be tough to handle physical contact."
+fit,/fɪt/,adj.,健壮的；健康的,"Regular exercise helps you stay fit and healthy."
+otherwise,/ˈʌðəwaɪz/,adv.,否则；不然,"Hurry up, otherwise we'll miss the train."
+survive,/səˈvaɪv/,v.,生存；存活,"Few plants can survive in the desert without water."
+proud,/praʊd/,adj.,骄傲的；自豪的,"Parents are proud when their children do well in school."
+role model,/rəʊl ˈmɒdl/,phr.,楷模；行为榜样,"Many young people see their favorite athletes as role models."
+in the field of,/ɪn ðə fiːld ɒv/,phr.,在……领域,"She is an expert in the field of marine biology."
+devote yourself to,/dɪˈvəʊt jɔːˈself tuː/,phr.,献身；致力,"She devoted herself to helping children with special needs."
+college entrance examination,/ˈkɒlɪdʒ ˈentrəns ɪɡˌzæmɪˈneɪʃn/,phr.,大学入学考试,"Students work hard to prepare for the college entrance examination."
+look up to,/lʊk ʌp tuː/,phr.,敬仰；钦佩,"Children often look up to their parents and teachers."
+sugar pill,/ˈʃʊɡə pɪl/,phr.,糖丸,"Some patients feel better after taking sugar pills even though they contain no medicine."
+chief engineer,/tʃiːf ˌendʒɪˈnɪə(r)/,phr.,总工程师,"The chief engineer is responsible for all technical aspects of the project."
+put out,/pʊt aʊt/,phr.,熄灭；扑灭,"The firefighters worked quickly to put out the forest fire."
+be able to,/bi ˈeɪbl tuː/,phr.,能够,"After years of practice, she is able to play the piano beautifully."
+be proud of,/bi praʊd ɒv/,phr.,为……而自豪,"I am proud of my son's achievements at school."
+possible,/ˈpɒsəbl/,adj.,可能,"Is it possible to finish this work by tomorrow?"
+athlete,/ˈæθliːt/,n.,运动员,"Professional athletes train for many hours every day."
+biologist,/baɪˈɒlədʒɪst/,n.,生物学家,"The biologist is studying the behavior of sea turtles."
+instrument,/ˈɪnstrəmənt/,n.,乐器；仪器,"The violin is a difficult instrument to learn."
+interest,/ˈɪntrəst/,n.,兴趣；业余爱好,"Reading is one of my main interests."
+career,/kəˈrɪə(r)/,n.,生涯；职业,"She has had a successful career as a doctor."
+lifetime,/ˈlaɪftaɪm/,n.,一生；终身,"People can learn new skills throughout their lifetime."
+diamond,/ˈdaɪəmənd/,n.,钻石,"She received a beautiful diamond ring for her engagement."
+belt,/belt/,n.,腰带,"Always wear your seat belt when driving."
+shoot,/ʃuːt/,v.,冲；奔；飞驰,"The children shoot out of the classroom when the bell rings."
+extremely,/ɪkˈstriːmli/,adv.,极其；极端；非常,"The test was extremely difficult; few students passed."
+curious,/ˈkjʊəriəs/,adj.,求知欲强的；好奇的,"Children are naturally curious about the world around them."
+increase,/ɪnˈkriːs/,v.,增长；增多；增加,"The population of the city has increased rapidly in recent years."
+host,/həʊst/,v.,主持,"She will host a dinner party for her colleagues next week."
+beyond,/bɪˈjɒnd/,adv.,在另一边；在(或向)更远处,"The children ran beyond the playground into the fields."
+audience,/ˈɔːdiəns/,n.,观众；听众,"The audience applauded loudly at the end of the performance."
+lively,/ˈlaɪvli/,adj.,充满趣味的；令人兴奋的,"The market is a lively place with many shops and people."
+actually,/ˈæktʃuəli/,adv.,事实上,"I thought the movie would be boring, but actually it was quite interesting."
+sail,/seɪl/,v.,驾驶(或乘坐)帆船航行,"We plan to sail around the island during our vacation."
+ability,/əˈbɪləti/,n.,才能；本领,"She has a natural ability for learning languages."
+review,/rɪˈvjuː/,n.,评论,"The film received positive reviews from most critics."
+lecture,/ˈlektʃə(r)/,n.,讲座；讲课；演讲,"The professor gave an interesting lecture on ancient civilizations."
+perform,/pəˈfɔːm/,v.,演出；表演,"The students will perform a play for the school festival."
+kiss,/kɪs/,n.,吻,"She gave her mother a kiss goodbye before leaving."
+hug,/hʌɡ/,n.,拥抱；搂抱,"A warm hug can make you feel better when you're sad."
+method,/ˈmeθəd/,n.,方法；办法,"Scientists use different methods to test their theories."
+compare,/kəmˈpeə(r)/,v.,将……比作,"The teacher asked us to compare the two poems and find similarities."
+body language,/ˈbɒdi ˈlæŋɡwɪdʒ/,phr.,肢体语言,"You can often tell how someone feels by their body language."
+dream of,/driːm ɒv/,phr.,梦想,"Many young people dream of becoming famous one day."
+come true,/kʌm truː/,phr.,实现；成为现实,"Her dream of becoming a doctor finally came true."
+human being,/ˈhjuːmən ˈbiːɪŋ/,n.,人,"Every human being has the right to clean water and food."
+nowadays,/ˈnaʊədeɪz/,adv.,现今；现在,"Nowadays, most people have mobile phones."
+go outside,/ɡəʊ ˈaʊtsaɪd/,phr.,外出,"Children should go outside and play rather than watching TV all day."
+more and more,/mɔːr ænd mɔː(r)/,phr.,越来越多,"More and more people are choosing to work from home."

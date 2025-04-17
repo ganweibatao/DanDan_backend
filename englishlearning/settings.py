@@ -13,12 +13,23 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 import sys
+import datetime
+from django.utils import timezone
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # 添加apps目录到Python路径
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
+
+# ====== 全局时间Mock，仅测试用 ======
+if os.environ.get("MOCK_DAYS"):
+    days = int(os.environ.get("MOCK_DAYS", "0"))
+    def mock_now():
+        real_now = datetime.datetime.now(timezone.get_current_timezone())
+        return real_now + datetime.timedelta(days=days)
+    timezone.now = mock_now
+# ====== END ======
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/

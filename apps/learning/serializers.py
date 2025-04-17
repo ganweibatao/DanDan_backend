@@ -41,7 +41,10 @@ class EbinghausUnitSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = LearningUnit
-        fields = ['id', 'unit_number', 'is_learned', 'learned_at', 'reviews']
+        fields = [
+            'id', 'unit_number', 'start_word_order', 'end_word_order',
+            'is_learned', 'learned_at', 'reviews'
+        ]
 
 class LearningPlanSerializer(serializers.ModelSerializer):
     """学习计划序列化器"""
@@ -76,7 +79,10 @@ class LearningPlanSerializer(serializers.ModelSerializer):
         
         if is_for_matrix:
             # 如果是为矩阵视图优化，使用精简的单元序列化器
-            units = instance.units.all()
+            units = instance.units
+            # 兼容 manager/list
+            if hasattr(units, 'all'):
+                units = units.all()
             rep['units'] = EbinghausUnitSerializer(units, many=True).data
         elif not include_detailed_units and 'units' in rep and rep['units']:
             # 如果不要求详细单元，且存在单元数据，则进行汇总
