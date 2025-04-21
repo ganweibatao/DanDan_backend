@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, filters, status, serializers, generics
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
 from apps.accounts.models import Student
+import requests
 
 # 尝试导入Student模型
 try:
@@ -523,4 +524,28 @@ class WordCustomizationListView(APIView):
             }
             for sc in queryset
         ]
-        return Response(data) 
+        return Response(data)
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def iciba_suggest(request):
+    """
+    前端传递word参数，后端请求iciba.com suggest接口，返回原始json
+    """
+    word = request.GET.get('word', '').strip()
+    if not word:
+        return Response({'error': '缺少word参数'}, status=400)
+    try:
+        url = 'https://dict-mobile.iciba.com/interface/index.php'
+        params = {
+            'c': 'word',
+            'm': 'getsuggest',
+            'nums': 5,
+            'is_need_mean': 1,
+            'word': word
+        }
+        resp = requests.get(url, params=params, timeout=5)
+        resp.raise_for_status()
+        return Response(resp.json())
+    except Exception as e:
+        return Response({'error': f'iciba suggest请求失败: {str(e)}'}, status=500) 

@@ -502,38 +502,25 @@ class TodayLearningView(APIView):
                     except ValueError: # 处理 naive datetime
                         learned_at_date = learned_at_datetime.date()
 
-                print(f"[TodayLearningView _get_actual_tasks new] Plan ID: {target_plan.id}")
-                print(f"[TodayLearningView _get_actual_tasks new] Latest Learned Unit: ID={latest_learned_unit.id}, Number={latest_learned_unit.unit_number}")
-                print(f"[TodayLearningView _get_actual_tasks new] Learned At (Raw DateTime): {learned_at_datetime}")
-                print(f"[TodayLearningView _get_actual_tasks new] Learned At (Date Used for Comparison): {learned_at_date}")
-                print(f"[TodayLearningView _get_actual_tasks new] Today's Date (Used for Comparison): {today}")
-
                 is_learned_today = learned_at_date == today if learned_at_date else False
-                print(f"[TodayLearningView _get_actual_tasks new] Is Learned Today Check Result: {is_learned_today}")
                 # --- 日志结束 ---
 
                 # 检查学习单元是否是今天完成的
                 # 使用上面计算好的 learned_at_date 进行比较
                 if learned_at_datetime and learned_at_date == today:
-                    print(f"[TodayLearningView _get_actual_tasks new] Unit {latest_learned_unit.unit_number} was learned today. Setting current_day_number back to {latest_learned_unit.unit_number}.")
                     current_day_number = latest_learned_unit.unit_number
                 else:
                     # 明确指出为什么没有改回 current_day_number
                     reason = "learned_at is null" if not learned_at_datetime else f"learned date {learned_at_date} != today {today}"
-                    print(f"[TodayLearningView _get_actual_tasks new] Unit {latest_learned_unit.unit_number} was not learned today ({reason}). Keeping current_day_number as {current_day_number}.")
 
             else: # 如果没有已学单元
                  current_day_number = 1 # 应该从第一个开始
                  today = timezone.now().date() # 获取今日日期用于日志
-                 print(f"[TodayLearningView _get_actual_tasks new] No learned units found for Plan ID: {target_plan.id}. Setting current_day_number to 1.")
-                 print(f"[TodayLearningView _get_actual_tasks new] Today's Date: {today}")
 
 
             new_unit_to_learn = None
-            print(f"[TodayLearningView _get_actual_tasks new] Attempting to find unit with number: {current_day_number} for Plan ID: {target_plan.id}")
             # 确保在 total_units 计算正确的前提下进行比较
             if total_units is None: # 添加保护，以防 total_units 未定义或为 None
-                print("[TodayLearningView _get_actual_tasks new] Error: total_units is not calculated correctly.")
                 total_units = 0 # 提供一个默认值避免后续错误
 
             if current_day_number <= total_units:
@@ -545,7 +532,7 @@ class TodayLearningView(APIView):
                     'learning_plan__vocabulary_book'
                 ).first()
                 if new_unit_to_learn:
-                     print(f"[TodayLearningView _get_actual_tasks new] Found new unit to learn: ID={new_unit_to_learn.id}, Number={new_unit_to_learn.unit_number}")
+                        print(f"[TodayLearningView _get_actual_tasks new] Found new unit to learn: ID={new_unit_to_learn.id}, Number={new_unit_to_learn.unit_number}")
                 else:
                      # 区分单元不存在和超出总数的情况
                      exists = LearningUnit.objects.filter(learning_plan=target_plan, unit_number=current_day_number).exists()

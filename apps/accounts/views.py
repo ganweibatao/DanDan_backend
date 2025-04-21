@@ -112,7 +112,7 @@ class UserViewSet(viewsets.ModelViewSet):
                 'error': '邮箱或密码错误'
             }, status=status.HTTP_401_UNAUTHORIZED)
             
-        login(request, user)
+        login(request, user) # 这步会设置 session cookie，可以保留用于Django Admin等，但API认证主要靠下面的Token Cookie
         token, _ = Token.objects.get_or_create(user=user)
         
         # 确定用户类型
@@ -122,12 +122,26 @@ class UserViewSet(viewsets.ModelViewSet):
         elif hasattr(user, 'student_profile'):
             user_type = 'student'
             
-        return Response({
-            'token': token.key,
+        # 创建响应对象
+        response = Response({
             'user_id': user.id,
             'email': user.email,
             'user_type': user_type
         })
+
+        # 设置 HttpOnly Cookie
+        response.set_cookie(
+            key='auth_token',  # Cookie 的名字
+            value=token.key,   # Cookie 的值是 Token
+            httponly=True,     # 关键：设置为 HttpOnly
+            samesite='Lax',    # SameSite 策略，Lax 比较常用
+            max_age=60*60*24*7, # <-- 设置过期时间为一周 (单位：秒)
+            # secure=True,     # 在生产环境中 (HTTPS) 应设置为 True
+            # expires=...     # 或者设置具体的过期日期时间
+            path='/'           # Cookie 的有效路径
+        )
+
+        return response
 
     def get_permissions(self):
         """
