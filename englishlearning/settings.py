@@ -23,12 +23,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 
 # ====== 全局时间Mock，仅测试用 ======
-if os.environ.get("MOCK_DAYS"):
-    days = int(os.environ.get("MOCK_DAYS", "0"))
-    def mock_now():
-        real_now = datetime.datetime.now(timezone.get_current_timezone())
-        return real_now + datetime.timedelta(days=days)
-    timezone.now = mock_now
+# if os.environ.get("MOCK_DAYS"):
+#     days = int(os.environ.get("MOCK_DAYS", "0"))
+#     def mock_now():
+#         real_now = datetime.datetime.now(timezone.get_current_timezone())
+#         return real_now + datetime.timedelta(days=days)
+#     timezone.now = mock_now
 # ====== END ======
 
 # Quick-start development settings - unsuitable for production
@@ -80,11 +80,15 @@ MIDDLEWARE = [
 
 # CORS设置
 CORS_ALLOW_ALL_ORIGINS = True  # 开发环境中允许所有源
+CORS_ALLOW_CREDENTIALS = True # <-- 添加这一行，允许发送 Cookie
 # 生产环境中应替换为特定源
 # CORS_ALLOWED_ORIGINS = [
 #     "http://localhost:3000",
 #     "http://127.0.0.1:3000",
 # ]
+
+# CSRF 设置
+CSRF_TRUSTED_ORIGINS = ['http://localhost:5173'] # 添加你的前端源
 
 ROOT_URLCONF = 'englishlearning.urls'
 
@@ -121,14 +125,6 @@ DATABASES = {
     }
 }
 
-# 如果没有PostgreSQL，可以暂时使用SQLite
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -152,6 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # REST Framework设置
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'apps.accounts.authentication.CookieTokenAuthentication',
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.BasicAuthentication',

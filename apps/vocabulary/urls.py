@@ -21,4 +21,6 @@ urlpatterns = [
     # 导入/导出
     path('books/<int:book_id>/import/', views.ImportWordsView.as_view(), name='import-words'),
     path('books/<int:book_id>/export/', views.ExportWordsView.as_view(), name='export-words'),
+    # iciba suggest
+    path('iciba_suggest/', views.iciba_suggest, name='iciba-suggest'),
 ] 
