@@ -536,10 +536,6 @@ class TodayLearningView(APIView):
                 else:
                      # 区分单元不存在和超出总数的情况
                      exists = LearningUnit.objects.filter(learning_plan=target_plan, unit_number=current_day_number).exists()
-                     if not exists:
-                         print(f"[TodayLearningView _get_actual_tasks new] No unit found with number {current_day_number}. It might not have been created yet.")
-                     # else 的情况实际上在 current_day_number <= total_units 之外处理
-
             else:
                  print(f"[TodayLearningView _get_actual_tasks new] current_day_number {current_day_number} exceeds total_units {total_units}. No new unit to learn.")
 

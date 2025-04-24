@@ -1,6 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+# 在文件顶部定义GENDER_CHOICES，供Teacher和Student共用
+GENDER_CHOICES = [
+    ('male', '男'),
+    ('female', '女'),
+    ('other', '其他'),
+]
+
 class Profile(models.Model):
     """用户公共信息"""
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -55,19 +62,13 @@ class Teacher(Profile):
     age = models.PositiveIntegerField(null=True, blank=True)  # 年龄
     province = models.CharField(max_length=50, blank=True)  # 省份
     city = models.CharField(max_length=50, blank=True)  # 城市
-    teaching_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='累计教学时长(小时)') # 教师累计教学时长（小时）
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True)  # 性别
     
     def __str__(self):
         return f"Teacher: {self.user.username}"
 
 class Student(Profile):
     """学生信息"""
-    GENDER_CHOICES = [
-        ('male', '男'),
-        ('female', '女'),
-        ('other', '其他'),
-    ]
-    
     ENGLISH_LEVEL_CHOICES = [
         ('beginner', '初级'),
         ('intermediate', '中级'),
@@ -97,6 +98,7 @@ class Student(Profile):
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='student_profile')
+    real_name = models.CharField(max_length=50, blank=True, verbose_name='真实姓名')
     level = models.CharField(max_length=50, choices=ENGLISH_LEVEL_CHOICES, blank=True)  # 英语水平
     personality_traits = models.CharField(max_length=200, blank=True, verbose_name='性格特点')  # 性格特点
     learning_goal = models.TextField(blank=True)  # 学习目标
@@ -106,7 +108,6 @@ class Student(Profile):
     city = models.CharField(max_length=50, blank=True)  # 城市
     grade = models.CharField(max_length=20, choices=GRADE_CHOICES, blank=True)  # 年级
     phone_number = models.CharField(max_length=20, blank=True, verbose_name='电话号码') # 学生电话号码
-    learning_hours = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, verbose_name='累计学习时长(小时)') # 学生累计学习时长（小时）
     
     def __str__(self):
         return f"Student: {self.user.username}"

@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'apps.vocabulary',
     'apps.learning',
     'drf_yasg',
+    'apps.tracking',
 ]
 
 MIDDLEWARE = [
@@ -79,16 +80,19 @@ MIDDLEWARE = [
 ]
 
 # CORS设置
-CORS_ALLOW_ALL_ORIGINS = True  # 开发环境中允许所有源
-CORS_ALLOW_CREDENTIALS = True # <-- 添加这一行，允许发送 Cookie
-# 生产环境中应替换为特定源
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",
-#     "http://127.0.0.1:3000",
-# ]
-
-# CSRF 设置
-CSRF_TRUSTED_ORIGINS = ['http://localhost:5173'] # 添加你的前端源
+# CORS_ALLOW_ALL_ORIGINS = True  # 开发环境中允许所有源（已用显式列表替代）
+CORS_ALLOW_CREDENTIALS = True  # 允许发送 Cookie
+# 生产/开发环境显式允许的前端源
+CORS_ALLOWED_ORIGINS = [
+    "http://111.229.186.241",
+    "http://localhost:5173",
+]
+# 更新 CSRF 信任的前端源
+CSRF_TRUSTED_ORIGINS = [
+    "http://111.229.186.241",
+    "http://111.229.186.241:8000",
+    "http://localhost:5173",
+]
 
 ROOT_URLCONF = 'englishlearning.urls'
 
@@ -193,3 +197,11 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Cache settings
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake', # Can be any unique name
+    }
+}

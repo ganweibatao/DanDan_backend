@@ -10,6 +10,14 @@ from .models import Teacher, Student, StudentTeacherRelationship
 from .serializers import UserSerializer, TeacherSerializer, StudentSerializer
 from rest_framework.permissions import IsAuthenticated
 from .permissions import IsTeacher, IsStudent, IsTeacherOrAdmin, IsTeacherOwnerOrAdmin, IsStudentOwnerOrRelatedTeacherOrAdmin
+from django.core.cache import cache
+from django.core.mail import send_mail
+from django.conf import settings
+import random
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from apps.tracking.models import UserDurationLog
+from django.db.models import Sum
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -142,6 +150,131 @@ class UserViewSet(viewsets.ModelViewSet):
         )
 
         return response
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='initiate-email-change')
+    def initiate_email_change(self, request):
+        """
+        Initiates the email change process.
+        Sends a verification code to the new email address.
+        Expects: {"new_email": "user@example.com"}
+        """
+        new_email = request.data.get('new_email')
+        user = request.user
+
+        if not new_email:
+            return Response({'error': 'New email address is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate email format (basic check)
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError
+        try:
+            validate_email(new_email)
+        except ValidationError:
+            return Response({'error': 'Invalid email format.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_email == user.email:
+            return Response({'error': 'New email cannot be the same as the current email.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if new email is already taken by another user
+        if User.objects.filter(email=new_email).exclude(pk=user.pk).exists():
+            return Response({'error': 'This email address is already in use.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Generate verification code
+        verification_code = str(random.randint(100000, 999999))
+        cache_key = f'email_change_code_{user.id}'
+        # Store code and new email in cache for 10 minutes
+        cache.set(cache_key, {'code': verification_code, 'new_email': new_email}, timeout=600)
+
+        # Send verification email (or print to console in development)
+        try:
+            subject = 'Verify your new email address'
+            message = f'Your verification code is: {verification_code}\nThis code will expire in 10 minutes.'
+            from_email = settings.DEFAULT_FROM_EMAIL if hasattr(settings, 'DEFAULT_FROM_EMAIL') else 'webmaster@localhost' # Fallback needed if not set
+            send_mail(subject, message, from_email, [new_email])
+            print(f"--- Email Change Verification ---")
+            print(f"To: {new_email}")
+            print(f"Subject: {subject}")
+            print(f"Code: {verification_code}")
+            print(f"-------------------------------")
+        except Exception as e:
+            print(f"Error sending email: {e}") # Log error
+            # Optionally inform user email sending failed, but proceed with cache logic
+            # return Response({'error': 'Failed to send verification email.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+        return Response({'message': 'Verification code sent to the new email address.'}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='confirm-email-change')
+    def confirm_email_change(self, request):
+        """
+        Confirms the email change using the verification code.
+        Expects: {"code": "123456", "new_email": "user@example.com"}
+        """
+        code = request.data.get('code')
+        new_email_provided = request.data.get('new_email') # Get new email from request for safety
+        user = request.user
+
+        if not code or not new_email_provided:
+            return Response({'error': 'Verification code and new email are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cache_key = f'email_change_code_{user.id}'
+        cached_data = cache.get(cache_key)
+
+        if not cached_data:
+            return Response({'error': 'Verification code expired or not found. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if cached_data.get('code') != code:
+            return Response({'error': 'Invalid verification code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Double check the email associated with the code matches the one provided
+        if cached_data.get('new_email') != new_email_provided:
+             return Response({'error': 'Email address mismatch during confirmation.'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+        # Check again if the email is taken (race condition check)
+        if User.objects.filter(email=new_email_provided).exclude(pk=user.pk).exists():
+            cache.delete(cache_key) # Clean up cache
+            return Response({'error': 'This email address was taken while you were verifying.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Update user's email
+        try:
+            user.email = new_email_provided
+            user.save(update_fields=['email'])
+            cache.delete(cache_key) # Clean up cache
+            return Response({'message': 'Email address updated successfully.'}, status=status.HTTP_200_OK)
+        except Exception as e:
+             print(f"Error saving user email: {e}")
+             return Response({'error': 'Failed to update email address.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='change-password')
+    def change_password(self, request):
+        user = request.user
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        if not old_password or not new_password:
+            return Response({'error': '请提供原密码和新密码'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.check_password(old_password):
+            return Response({'error': '原密码错误'}, status=status.HTTP_400_BAD_REQUEST)
+        if old_password == new_password:
+            return Response({'error': '新密码不能和原密码相同'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(new_password, user=user)
+        except ValidationError as e:
+            return Response({'error': '新密码不符合要求: ' + '; '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(new_password)
+        user.save()
+        return Response({'message': '密码修改成功'}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated], url_path='delete-account')
+    def delete_account(self, request):
+        user = request.user
+        password = request.data.get('password')
+        if not password:
+            return Response({'error': '请提供密码'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.check_password(password):
+            return Response({'error': '密码错误'}, status=status.HTTP_400_BAD_REQUEST)
+        user.delete()
+        return Response({'message': '账户已删除'}, status=status.HTTP_204_NO_CONTENT)
 
     def get_permissions(self):
         """
@@ -310,10 +443,31 @@ class TeacherViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': f'移除学生时出错: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsTeacher], url_path='total-teaching-duration')
+    def total_teaching_duration(self, request):
+        """
+        获取当前登录教师的总授课时长（小时）
+        """
+        user = request.user
+        
+        # 确保用户是教师 (虽然 IsTeacher 权限类已经处理，这里可以加一层保险)
+        if not hasattr(user, 'teacher_profile'):
+            return Response({'error': '用户不是教师'}, status=status.HTTP_403_FORBIDDEN)
+            
+        # 查询该教师的所有授课记录并计算总时长（秒）
+        aggregation = UserDurationLog.objects.filter(
+            user=user, 
+            type='teaching'
+        ).aggregate(total_seconds=Sum('duration'))
+        
+        total_seconds = aggregation.get('total_seconds') or 0
+        
+        # 将秒转换为小时，保留两位小数
+        total_hours = round(total_seconds / 3600, 2)
+        
+        return Response({'total_teaching_hours': total_hours}, status=status.HTTP_200_OK)
+
 class StudentViewSet(viewsets.ModelViewSet):
-    """
-    API端点，允许学生信息查看或编辑 (对教师和学生本身)
-    """
     serializer_class = StudentSerializer
     permission_classes = [IsAuthenticated] # Base permission
 
@@ -353,3 +507,24 @@ class StudentViewSet(viewsets.ModelViewSet):
         else: # list, create (though creation is handled by teacher now)
              self.permission_classes = [IsAuthenticated]
         return super().get_permissions()
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated, IsTeacher], url_path='learning-hours')
+    def learning_hours(self, request):
+        """
+        教师批量获取自己所有学生的学习时长（小时），未找到则为0.00
+        返回: [{student_id: int, learning_hours: float}]
+        """
+        teacher = request.user.teacher_profile
+        # 获取所有关联学生ID
+        student_ids = list(StudentTeacherRelationship.objects.filter(teacher=teacher).values_list('student_id', flat=True))
+        # 查询这些学生的学习时长（秒）
+        logs = UserDurationLog.objects.filter(user__student_profile__id__in=student_ids, type='learning')
+        agg = logs.values('user__student_profile__id').annotate(total_seconds=Sum('duration'))
+        # 构建 student_id -> hours 映射
+        id_to_hours = {item['user__student_profile__id']: round((item['total_seconds'] or 0) / 3600, 2) for item in agg}
+        # 保证所有学生都返回
+        result = [
+            {'student_id': sid, 'learning_hours': id_to_hours.get(sid, 0.00)}
+            for sid in student_ids
+        ]
+        return Response(result)

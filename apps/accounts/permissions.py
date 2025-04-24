@@ -37,7 +37,7 @@ class IsTeacherOwnerOrAdmin(permissions.BasePermission):
 
 class IsStudentOwnerOrRelatedTeacherOrAdmin(permissions.BasePermission):
     """
-    允许学生本人、关联的教师或管理员访问/编辑。
+    允许学生本人、关联的教师或管理员访问和编辑（读写）。
     """
     def has_object_permission(self, request, view, obj):
         # Read permissions are allowed for owner, related teacher, or admin
@@ -51,11 +51,8 @@ class IsStudentOwnerOrRelatedTeacherOrAdmin(permissions.BasePermission):
                 teacher=request.user.teacher_profile
             ).exists()
 
-        if request.method in permissions.SAFE_METHODS: # GET, HEAD, OPTIONS
-            return is_owner or is_related_teacher or is_admin
-
-        # Write permissions (PUT, PATCH, DELETE) only for owner or admin
-        return is_owner or is_admin
+        # 读写权限都允许学生本人、关联老师、管理员
+        return is_owner or is_admin or is_related_teacher
 
 class IsRelatedTeacherOrAdmin(permissions.BasePermission):
     """
