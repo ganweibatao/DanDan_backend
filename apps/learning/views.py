@@ -342,24 +342,40 @@ class MarkReviewAsCompletedView(APIView):
                 # 检查是否需要更新到下一轮次
                 current_order = review.review_order
                 next_review_order = current_order + 1
-                # print(f"[MarkReviewAsCompletedView] 当前轮次: {current_order}, 下一轮次: {next_review_order}, 理论最大轮次: {theoretical_review_order}")
 
-                if current_order > theoretical_review_order:
-                    # print(f"[MarkReviewAsCompletedView] 当前轮次({current_order})已超理论轮次({theoretical_review_order})，不做更新，直接返回。")
+                # 新增：基于整体学习进度限制最大复习轮次
+                # 获取该计划中最新已学单元
+                latest_learned_unit = LearningUnit.objects.filter(
+                    learning_plan=learning_unit.learning_plan,
+                    is_learned=True
+                ).order_by('-unit_number').first()
+                # 计算基于进度的最大允许轮次
+                progress_max_order = 0
+                if latest_learned_unit:
+                    days_relative = latest_learned_unit.unit_number - learning_unit.unit_number
+                    for order, due_day in review_due_days.items():
+                        if days_relative >= due_day:
+                            progress_max_order = order
+                        else:
+                            break
+                # 如果下一个轮次超过整体进度允许的最大轮次，则只标记完成，不更新轮次
+                if next_review_order > progress_max_order:
                     serializer = UnitReviewSerializer(review)
                     return Response(serializer.data)
-                
+
+                if current_order > theoretical_review_order:
+                    # 当前轮次已超自身理论上限，不更新
+                    serializer = UnitReviewSerializer(review)
+                    return Response(serializer.data)
+
                 if current_order in self.review_intervals_days:
                     days_interval = self.review_intervals_days[current_order]
-                    # print(f"[MarkReviewAsCompletedView] 下一轮次({next_review_order})在间隔映射中，间隔天数: {days_interval}")
-          
-                # 更新当前复习任务，而不是创建新的
-                next_review_date = review.review_date + timedelta(days=days_interval)
-                # print(f"[MarkReviewAsCompletedView] 当前 review.review_date: {review.review_date}，计算得到的 next_review_date: {next_review_date}")
-                review.review_order = next_review_order
-                review.review_date = next_review_date
-                review.is_completed = False  # 重置为未完成状态，等待下次复习
-                review.completed_at = None   # 清空完成时间
+                    # 更新当前复习任务，而不是创建新的
+                    next_review_date = review.review_date + timedelta(days=days_interval)
+                    review.review_order = next_review_order
+                    review.review_date = next_review_date
+                    review.is_completed = False  # 重置为未完成状态，等待下次复习
+                    review.completed_at = None   # 清空完成时间
             
             review.save()
         
@@ -536,10 +552,6 @@ class TodayLearningView(APIView):
                 else:
                      # 区分单元不存在和超出总数的情况
                      exists = LearningUnit.objects.filter(learning_plan=target_plan, unit_number=current_day_number).exists()
-                     if not exists:
-                         print(f"[TodayLearningView _get_actual_tasks new] No unit found with number {current_day_number}. It might not have been created yet.")
-                     # else 的情况实际上在 current_day_number <= total_units 之外处理
-
             else:
                  print(f"[TodayLearningView _get_actual_tasks new] current_day_number {current_day_number} exceeds total_units {total_units}. No new unit to learn.")
 

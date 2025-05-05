@@ -36,6 +36,7 @@ urlpatterns = [
     path(f'{API_PREFIX}accounts/', include('apps.accounts.urls')),
     path(f'{API_PREFIX}vocabulary/', include('apps.vocabulary.urls')),
     path(f'{API_PREFIX}learning/', include('apps.learning.urls')),
+    path(f'{API_PREFIX}tracking/', include('apps.tracking.urls')),
 ]
 
 # 开发环境中提供媒体文件服务
