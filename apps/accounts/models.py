@@ -65,7 +65,7 @@ class Teacher(Profile):
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, blank=True)  # 性别
     
     def __str__(self):
-        return f"Teacher: {self.user.username}"
+        return f"{self.user.username}"
 
 class Student(Profile):
     """学生信息"""
@@ -110,7 +110,7 @@ class Student(Profile):
     phone_number = models.CharField(max_length=20, blank=True, verbose_name='电话号码') # 学生电话号码
     
     def __str__(self):
-        return f"Student: {self.user.username}"
+        return f"{self.user.username}"
 
 class StudentTeacherRelationship(models.Model):
     """学生-教师关系表"""
