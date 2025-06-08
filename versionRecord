@@ -1,0 +1,605 @@
+# Version History
+
+## Frontend Updates
+【2024-04-12~2024-04-13】
+- [Fixed] BUG where page turning caused other buttons to flicker and turn gray
+- [Added] Word annotation feature
+- [Added] Customizable word font size feature
+- [Improved] Changed page turn buttons to hand-drawn style, page numbers displayed at bottom
+- [Added] Scroll to view words feature
+- [Added] Single word detail view feature (supports swipe viewing and editing)
+- [Added] Fullscreen functionality
+- [Improved] Main content area layout in word memorization page
+- [Improved] Users can choose to continue learning current words after completion
+- [Fixed] Randomness issue in shuffle function
+
+【2024-04-14】
+- [Optimized] In Students page, pass word start/end order numbers to memorize page when starting learning, to facilitate passing these values to backend API when completing learning
+- [Fixed] The logic of reviewing new words and learning new words, prioritize using backend data interface to make judgment
+
+【2024-04-18】
+- [Added] Integrated nprogress dependency to display a progress bar during API requests and responses
+- [Added] New AddWordsDialog component to allow users to add words
+- [Refactor] Refactored the MemorizeWords component to integrate new features such as adding words, review, and known words management, and optimized the code structure
+- [Removed] Removed the useDarkMode hook and added several custom hooks to support word review and known words management
+- [Improved] Updated related components to adapt to new features and enhance user experience
+
+
+【2024-04-20】
+- [Removed] Deleted the AddWordsDialog component and cleaned up related references
+- [Updated] Updated the import path for the MemorizeWords component to ensure correct references
+- [Optimized] Adjusted the button styles in the CompletionScreen component to be consistent with other primary buttons
+
+## Backend Updates
+【2024-04-12~2024-04-13】
+- [Added] Learning plan data interaction API
+- [Added] Ebbinghaus plan data display API
+- [Improved] Logic for fetching today's learning content
+- [Fixed] Logic for marking newly learned content as completed
+- [Fixed] Automatically create to-learn list when creating new learning plan
+- [Improved] Learning plan modification logic (delete old records when recreating plan)
+- [Improved] Backend admin console uses China timezone
+- [Fixed] Deleted apps/__init__.py file
+
+【2024-04-14】
+- [Added] Get words in a range of a learning plan
+- [Improved] The word range of a learning unit will increase as the user learns more words
+- [Improved] The backend admin console displays the start and end word orders of a learning unit, and the completion time of learning
+- [Fixed] The logic of reviewing new words and learning new words, check if the last learned unit is completed on the current day
+- [Added] Add API for getting additional new words
+- [Improved] Updated LearningPlanSerializer to handle unit retrieval more flexibly
+- [Added] 引入 EbinghausReviewSerializer 和 EbinghausUnitSerializer，用于优化矩阵视图。
+- [Added] 新增 Ebinghaus 矩阵数据获取 API 接口。
+- [Improved] Enhanced MarkReviewAsCompletedView to ensure review progress aligns with theoretical expectations
+- [Improved] Filtered units in EbinghausMatrixDataView to exclude unlearned units accurately
+
+
+
+1.  **`vocabulary/` (词汇应用)**
+    *   **可能处理的数据:** 单词列表、单词的详细信息（发音、释义、例句）、词书信息、用户生词本等。
+    *   **前端方案:**
+        *   **首选:** 使用 **React Query 或 SWR** 这类服务器状态管理库来获取和缓存单词数据。这些库能高效地管理内存缓存，自动处理数据更新和后台同步。
+        *   **离线/大量数据:** 如果需要支持**离线背单词**或者一次性加载**非常大的词库**（成千上万条），建议配置 React Query/SWR 将其缓存持久化到 **`IndexedDB`**。`IndexedDB` 提供了更大的存储空间，适合存储结构化的大量数据。
+        *   **避免:** 不要将整个词库直接塞进 `localStorage`，很容易超出 5-10MB 的限制。
+
+2.  **`learning/` (学习应用)**
+    *   **可能处理的数据:** 用户的学习计划、学习进度（已学单词数、学习天数）、测试/练习结果、学习模式设置（非界面设置）等。
+    *   **前端方案:**
+        *   **首选:** 同样推荐使用 **React Query 或 SWR** 来管理这些与用户学习状态相关的数据。它们能很好地处理需要根据用户交互或时间推移而更新的数据。
+        *   **全局状态:** 对于需要在多个组件共享的当前学习计划或关键进度指标，可以将通过 React Query/SWR 获取的数据存入 **React Context** 或 **Zustand/Jotai** 等轻量级状态管理器中，方便全局访问。
+        *   **持久化:** 如果某些**非敏感**的学习配置或进度摘要（比如上次学习的列表ID）需要在关闭浏览器后快速恢复，可以考虑将这部分数据通过 React Query/SWR 的持久化缓存功能存入 `localStorage` 或 `IndexedDB`，但要优先考虑库自身的内存缓存。
+
+3.  **`accounts/` (账户应用)**
+    *   **可能处理的数据:** 用户认证（登录、注册、Token管理）、用户基本信息（姓名、邮箱、头像）、**敏感信息（可能包含电话号码、密码管理相关接口）**、账户相关设置。
+    *   **前端方案:**
+        *   **认证状态:** 用户是否登录的状态通常由 **HttpOnly Cookie** (由后端设置，浏览器自动处理) 或安全的 Token 存储机制管理。前端通常只需要在内存中（如 **React Context** 或 **Zustand/Jotai**）维护一个简单的 `isAuthenticated` 标志位。
+        *   **用户基本信息 (姓名、邮箱、头像):** 使用 **React Query 或 SWR** 获取用户 Profile 数据，并将其缓存在内存中。可以通过 **Context** 或 **Zustand/Jotai** 将常用信息（如用户名）提供给全局组件（如页面顶部导航栏）。**避免将这些个人身份信息 (PII) 存储在 `localStorage` 中。**
+        *   **敏感信息 (电话号码等):**
+            *   **绝对禁止存储在 `localStorage`, `sessionStorage`, 或 `IndexedDB` 中！**
+            *   **只在需要时获取:** 仅在特定页面（如用户个人资料编辑页）需要显示或修改时，才向后端**发起请求获取**。
+            *   **仅内存持有:** 获取到的敏感数据**只应存在于组件的内存状态或 React Query/SWR 的内存缓存中**，并且仅在需要它的组件的生命周期内有效。页面关闭或用户离开相关流程后，内存中的数据就自然消失了。
+
+**总结:**
+
+*   **核心原则:** 大部分后端数据交互，优先使用 **React Query/SWR** 管理。
+*   **全局共享:** 需要全局访问的状态（用户登录状态、姓名、当前计划概要），结合 **Context** 或 **Zustand/Jotai**。
+*   **大量/离线数据 (`vocabulary`):** 考虑 **`IndexedDB`** 作为持久化缓存。
+*   **敏感数据 (`accounts`):** **严禁本地存储**，按需获取，仅内存持有。
+*   **`localStorage`:** 仅作为**非敏感**、**体积适中**数据（如部分学习设置）的**辅助性、非必须**的持久化缓存手段，且优先考虑 React Query/SWR 的内置持久化功能。
+
+
+
+是的，Django 和 Django REST Framework (DRF) 完全支持设置 `HttpOnly` Cookie。这是一个更安全的标准做法。
+
+好的，我们来分两步修改：
+
+1.  **修改后端 Django 视图 (`back_web/apps/accounts/views.py`)**：让登录接口在返回响应时设置 `HttpOnly` Cookie，而不是在 JSON Body 中返回 Token。
+2.  **修改前端 React 组件 (`front_web/src/screens/LoginRegister/Login.tsx`)**：移除将 Token 存入 `localStorage` 的代码，并确保 Axios 配置为发送凭据（Cookies）。
+
+**第一步：检查并修改后端视图**
+
+我需要先查看一下你当前的登录视图是如何实现的，以便进行修改。请问你的登录视图是基于 DRF 的 `LoginView`、`ObtainAuthToken` 还是自定义的视图？或者，我可以先读取 `back_web/apps/accounts/views.py` 文件来查找相关代码。
+
+Okay, I will first read the `views.py` file to understand the current login implementation.
+
+Read file: back_web/apps/accounts/views.py
+Okay, I see the `login` action within your `UserViewSet`. It currently uses Django's built-in `authenticate` and `login` functions, and then generates a DRF `Token` and returns it in the response body.
+
+
+
+
+后端修改已完成。现在 `login` 接口会将 Token 设置为名为 `auth_token` 的 `HttpOnly` Cookie，并且响应体中不再包含 `token` 字段。
+
+**第二步：修改前端登录组件**
+
+接下来，我们需要修改 `front_web/src/screens/LoginRegister/Login.tsx`：
+
+1.  移除 `localStorage.setItem("token", ...)`。
+2.  移除 `axios.defaults.headers.common["Authorization"] = ...`。
+3.  确保 Axios 请求包含了 `withCredentials: true`，这样浏览器才会自动发送 Cookie。我们可以在 `axios.post` 调用中添加它。
+
+我将为你生成修改后的代码。
+
+
+ frontend `Login.tsx` 组件的修改也已完成。
+
+**重要提示:**
+
+1.  **CORS 配置**: 你的 Django 后端需要正确配置 CORS (Cross-Origin Resource Sharing)，特别是 `CORS_ALLOW_CREDENTIALS = True` 和 `CORS_ALLOWED_ORIGINS` (或 `CORS_ORIGIN_WHITELIST`) 需要包含你的前端访问地址 (例如 `http://localhost:3000`)。否则，浏览器会阻止前端发送带有 `withCredentials: true` 的跨域请求。检查你的 Django `settings.py` 中 `django-cors-headers` 的配置。
+2.  **后端认证**: 后端现在需要配置为接受 Cookie 中的 Token 进行认证。DRF 的 `TokenAuthentication` 默认查找 `Authorization` Header。你需要配置或自定义认证类来从 `auth_token` Cookie 中读取 Token。一个简单的方法是创建一个自定义的认证后端。
+3.  **生产环境**:
+    *   在生产环境 (HTTPS) 下，务必在 `response.set_cookie` 中设置 `secure=True`。
+    *   考虑为 Cookie 设置 `max_age` 或 `expires` 来控制 Token 的有效期。
+4.  **全局 Axios 配置**: 为了避免在每个需要认证的请求中都写 `withCredentials: true`，你可以在项目入口文件（如 `src/index.tsx`）或创建一个 Axios 实例时进行全局配置：
+    ```typescript
+    import axios from 'axios';
+
+    axios.defaults.baseURL = 'http://localhost:8000/api/v1'; // 设置基础 URL
+    axios.defaults.withCredentials = true; // 全局设置允许发送 Cookie
+    ```
+
+请检查你的 CORS 配置和后端认证设置。如果后端认证没有配置为从 Cookie 读取 Token，登录后的其他 API 请求会失败。如果你需要帮助修改后端认证部分，请告诉我！
+
+
+好的，我们来梳理一下使用 React Query 和 IndexedDB 持久化方案时，查找单词发音数据的流程：
+
+1.  **组件首次请求 (或缓存失效后):** 当你的组件（比如 `WordCardView`）第一次调用 `useWordPronunciation(word)` 时，React Query 会执行以下步骤：
+    *   **检查内存缓存:** 它首先看内存里有没有 `['pronunciation', word]` 这个 key 对应的数据。
+    *   **内存没有，尝试从 IndexedDB 恢复:** 如果内存里没有：
+        *   `persistQueryClient` (你在 `index.tsx` 配置的) 会尝试从 IndexedDB 加载之前保存的整个 React Query 缓存。
+        *   如果在从 IndexedDB 恢复的数据中找到了 `['pronunciation', word]` 对应的、并且没有超过 `maxAge` (你设置的 60 天) 的数据，它会把这个数据放入内存缓存。
+        *   **此时，数据就相当于从 IndexedDB 中查找并恢复到了内存中。**
+        *   React Query 接着会判断这个从 IndexedDB 恢复的数据是否“新鲜”（根据 `staleTime`，你设置的是 1 小时）。
+            *   如果新鲜，直接返回这个数据给组件。
+            *   如果“过时”(stale)，它会**先返回这个旧数据**给组件（让界面先显示），然后**在后台**偷偷去调用 `fetchWordPronunciation` 网络请求获取最新数据，获取成功后再更新内存和 IndexedDB。
+    *   **IndexedDB 也没有（或已过期）:** 如果 IndexedDB 里也没有找到有效数据，React Query 才会真正去执行 `fetchWordPronunciation` 进行网络请求。请求成功后，数据会存入内存缓存，并且 `persistQueryClient` 会自动将其写入 IndexedDB。
+
+2.  **组件后续请求 (数据已在内存):**
+    *   如果组件再次请求同一个单词的发音 (`useWordPronunciation(word)` 被再次调用)，并且内存中已经有了 `['pronunciation', word]` 的数据：
+        *   React Query 会检查这个内存数据是否“新鲜”。
+            *   如果新鲜 (`staleTime` 未过期)，直接从内存返回数据。**不会访问 IndexedDB。**
+            *   如果过时 (`staleTime` 已过期)，它会**先返回内存中的旧数据**，然后在后台发起网络请求更新数据。**也不会访问 IndexedDB**（因为内存里已经有，只是旧了点）。
+
+**总结一下，React Query 会在以下主要情况下从 IndexedDB 读取数据：**
+
+*   **应用加载/刷新后首次查询某个单词时：** 当内存缓存为空，`persistQueryClient` 会从 IndexedDB 加载持久化的缓存数据到内存中。
+*   **查询一个内存中没有，但 IndexedDB 中有的单词时：** 这通常发生在应用刚启动，或者某个单词的内存缓存因为长时间不活跃而被垃圾回收（超过 `gcTime`）之后。
+
+**关键点：** IndexedDB 主要作为**持久层**，用于在页面刷新、浏览器关闭重启后恢复缓存状态到**内存**中。一旦数据进入了内存缓存，React Query 会优先使用内存缓存（因为它更快），只有在内存缓存没有数据时，才会考虑从 IndexedDB 加载。它并不会在每次数据“过时”时都去读一次 IndexedDB。
+
+
+好的，简洁地说，对于用户在 `MemorizeWords.tsx` 页面**第一次遇到某个单词**并需要播放发音时，流程是这样的：
+
+1.  **请求开始:** `useWordPronunciation` 被调用，发现没有缓存。
+2.  **获取链接:** 先去 `dictionaryapi.dev` 请求这个单词的发音 URL（英式/美式）。
+3.  **下载音频:** 接着，对获取到的有效 URL 发起新的网络请求，**下载 MP3 音频数据**成本地 `Blob` 对象。
+4.  **缓存数据:** 下载完成后，将包含 `Blob` 的数据存入 React Query 的内存缓存，并**自动写入 IndexedDB**。
+5.  **播放音频:** 当用户点击播放时，直接从缓存中读取 `Blob`，生成一个临时的本地 `blob:` URL，然后播放这个本地 URL（**这次播放不需网络**）。
+6.  **清理:** 播放完毕后，销毁临时的 `blob:` URL。
+
+**简单概括：首次需联网下载音频 -> 存入本地数据库 -> 后续播放直接读本地。**
+
+
+好的，简洁地说，几天后用户再次遇到**同一个单词**时的流程：
+
+1.  **启动加载:** 用户打开应用/页面，React Query 初始化。
+2.  **读取本地库:** `persistQueryClient` (持久化工具) 会尝试从 **IndexedDB** 读取之前缓存的所有数据。
+3.  **找到音频:** 它在 IndexedDB 中找到了这个单词对应的音频 `Blob` 数据，并且检查发现这个数据没超过你设置的 `maxAge` (60天)。
+4.  **放入内存:** 将这个 `Blob` 数据从 IndexedDB **加载到 React Query 的内存缓存**中。
+5.  **Hook 获取:** `useWordPronunciation` 运行时，直接从**内存缓存**中获取到这个 `Blob` 数据。由于 `staleTime` 设为 `Infinity`，数据被认为是新鲜的。
+6.  **无需联网:** **不需要**再次访问 `dictionaryapi.dev` 或下载音频文件。
+7.  **播放音频:** 当用户点击播放时，直接从内存中读取 `Blob`，生成临时的本地 `blob:` URL，然后播放（**完全离线**）。
+8.  **清理:** 播放完毕后，销毁临时的 `blob:` URL。
+
+**简单概括：启动时从本地数据库加载音频 -> 播放时直接读本地内存。** (前提是数据没在 IndexedDB 中过期且用户未清除数据)。
+
+server {
+    listen 80 default_server;
+    server_name _;
+    
+    # 添加基本 MIME 类型
+    include /etc/nginx/mime.types;
+    
+    # 设置根目录为前端构建目录
+    root /home/ubuntu/test/front_web/dist;
+    
+    # 关键解决方案：强制覆盖HTML内容中的相对路径
+    location = /index.html {
+        sub_filter_once off;
+        sub_filter './assets/' '/assets/';
+        sub_filter './img/' '/img/';
+        sub_filter './images/' '/images/';
+    }
+    
+    # 关键解决方案2：重写所有子路径下对index.html的请求到根目录的index.html
+    location ~ ^/(students|schools|settings|profile|memorize|leaderboards|help|quests|pronunciation|word-snake)(/.*)?$ {
+        # 只有当请求的是目录或不存在的文件时，才重写到index.html
+        if (!-f $request_filename) {
+            rewrite ^ /index.html last;
+        }
+    }
+    
+    # 处理JavaScript文件的MIME类型
+    location ~* \.js$ {
+        add_header Content-Type application/javascript;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+    
+    # 静态资源路径处理
+    location /assets/ {
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+    
+    # 图片资源
+    location /images/ {
+        expires 30d;
+    }
+    
+    location /img/ {
+        expires 30d;
+    }
+    
+    # 后端API代理
+    location /api/ {
+        # 转发请求到后端API服务（匹配 /api/v1/ 前缀）
+        proxy_pass http://localhost:8000/api/v1/;
+        
+        # 修正header中可能的空格问题
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # 支持带凭证的动态 CORS
+        add_header Access-Control-Allow-Origin $http_origin always;
+        add_header Access-Control-Allow-Credentials true always;
+        add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS, PUT, DELETE' always;
+        add_header Access-Control-Allow-Headers 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization' always;
+    }
+    
+    # 将所有其他路由路径都重定向到index.html
+    location / {
+        try_files $uri $uri/ /index.html;
+        index index.html;
+    }
+
+    location /videos/ {
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+
+    location /sounds/ {
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+}
+
+
+
+好的，下面为你**详细梳理“用户时长准确记录”方案**，并针对各种异常场景，说明如何保证用户时长不会被少计算，最大限度保障数据完整性和准确性。
+
+---
+
+# 一、方案总览
+
+## 1. 目标
+- 精准记录用户在学习/授课页面的活跃时长
+- 能应对断网、异常关闭、切后台、多标签页、恶意操作等各种场景
+- 最大限度减少时长丢失，保障数据完整性
+
+## 2. 技术栈
+- 前端：React（TypeScript，自定义 Hook）
+- 后端：Python（Django/FastAPI/Flask等）
+- 数据库：PostgreSQL
+- 本地缓存：localStorage
+- 不引入 Redis（当前用户量足够）
+
+---
+
+# 二、核心实现要点
+
+## 1. 前端
+
+- **定时心跳上报**：每隔5分钟自动上报一次累计时长
+- **页面关闭/切后台/刷新时兜底上报**：用 sendBeacon 发送最后一段时长，同时本地缓存一份
+- **断网时本地缓存**：上报失败的数据存 localStorage，网络恢复或下次进入页面时自动补发
+- **多标签页互斥锁**：用 localStorage 或 BroadcastChannel 保证同一时刻只有一个标签页在计时和上报，防止重复计时
+
+## 2. 后端
+
+- 提供 `/api/v1/duration/log/` 接口，接收 user_id、type、duration
+- 写入 PostgreSQL 日志表
+- 校验单次 duration 合理性，防止作弊
+- 可根据需要做进一步的时长去重、风控分析
+
+---
+
+# 三、各种异常场景的处理手段
+
+| 异常场景         | 处理手段                                                                                   | 如何保证时长不丢失/少算 |
+|------------------|------------------------------------------------------------------------------------------|------------------------|
+| **断网**             | 1. 上报失败时将数据存 localStorage<br>2. 网络恢复时自动补发<br>3. 页面加载时自动补发 | 只要用户后续联网，所有断网期间的时长都能补发，不会丢失 |
+| **页面关闭/刷新**    | 1. 用 sendBeacon 兜底上报最后一段时长<br>2. 同时本地缓存一份，防止 sendBeacon 失败 | 即使 sendBeacon 失败，下次进入页面或联网时还能补发 |
+| **多标签页**         | 1. localStorage/BroadcastChannel 实现互斥锁<br>2. 只有一个标签页计时和上报 | 避免重复计时，保证时长不被多算也不会少算 |
+| **本地数据被清理**   | 1. 定时上报+页面关闭上报，最大限度减少丢失窗口<br>2. 重要数据尽快同步到后端 | 只会丢失极小一段（如5分钟内）数据，绝大部分时长已上报 |
+| **恶意篡改本地数据** | 1. 后端校验 duration 合理性、频率、时间戳，发现异常拒绝或告警<br>2. 可加签名机制提升安全性 | 篡改数据不会被后端采纳，保证统计准确 |
+| **伪造请求**         | 1. 后端限制单次 duration 最大值，校验时间戳<br>2. 必要时用会话ID、签名等机制提升安全性 | 伪造数据被拒绝，保证统计真实 |
+| **长时间未上报**     | 1. 后端可分析心跳间隔，发现异常可告警或补偿<br>2. 前端可弹窗提示用户尽快联网 | 用户只要后续联网，时长都能补发，不会少算 |
+| **频繁切换网络**     | 1. 每次网络恢复时自动 flush 本地缓存，保证数据最终送达 | 只要用户有一次联网机会，所有时长都能补发 |
+
+---
+
+# 四、前端关键代码逻辑（伪代码）
+
+```typescript
+// 定时心跳上报
+setInterval(() => {
+  const duration = ...;
+  fetch('/api/v1/duration/log/', { ... })
+    .catch(() => savePendingLog({ ... })); // 失败时本地缓存
+}, 5 * 60 * 1000);
+
+// 页面关闭/刷新
+window.addEventListener('beforeunload', () => {
+  const duration = ...;
+  navigator.sendBeacon('/api/v1/duration/log/', ...);
+  savePendingLog({ ... }); // 兜底
+});
+
+// 网络恢复/页面加载
+window.addEventListener('online', flushPendingLogs);
+window.addEventListener('load', flushPendingLogs);
+
+// 多标签页互斥锁
+// 只允许一个标签页计时和上报
+```
+
+---
+
+# 五、后端校验逻辑
+
+- 限制单次 duration 最大值（如5分钟）
+- 校验时间戳与服务器时间的合理性
+- 发现异常数据拒绝或告警
+- 可做风控分析，发现可疑用户
+
+---
+
+# 六、用户体验补充
+
+- 断网时可弹窗提示：“当前为离线状态，部分学习时长未同步，请尽快联网”
+- 页面关闭/刷新时自动兜底上报，用户无需手动操作
+
+---
+
+# 七、方案优点
+
+- **高准确性**：多重兜底，最大限度减少时长丢失
+- **高安全性**：前端互斥+后端校验，防止重复计时和恶意刷时长
+- **高扩展性**：后续可平滑引入 Redis、聚合表、风控分析等
+- **高兼容性**：适配各种异常场景，用户体验友好
+
+---
+
+如需具体的代码实现、异常处理细节、或与现有业务集成的建议，欢迎随时提问！
+
+
+非常好！我们现在可以正式开始实现**用户时长准确记录**的功能。  
+下面是推荐的开发步骤和注意事项，确保你可以高效、系统地推进：
+
+---
+
+## 一、开发步骤建议
+
+### 1. 后端接口准备
+
+- 在后端（如 Django/FastAPI/Flask）实现 `/api/v1/duration/log/` 接口
+- 接收参数：user_id、type、duration、（可选：时间戳、会话ID）
+- 写入 PostgreSQL 的 `user_duration_log` 表
+- 实现基本的校验（如单次 duration 不超过5分钟）
+
+### 2. 前端 Hook 编写
+
+- 在 `/front_web/src/hooks/` 下新建 `useDurationLogger.ts`
+- 实现定时心跳上报、页面关闭/刷新兜底、断网本地缓存、网络恢复自动补发
+- 集成多标签页互斥锁逻辑，防止重复计时
+
+### 3. 页面集成
+
+- 在所有需要统计时长的页面（如学习、授课页面）顶部调用 `useDurationLogger`
+- 传入当前用户ID和类型（如 'learning' 或 'teaching'）
+
+### 4. 后端校验与风控
+
+- 在接口层校验 duration、时间戳等合理性
+- 可预留风控分析接口，后续做异常检测
+
+### 5. 测试各种异常场景
+
+- 断网、刷新、关闭页面、多标签页、频繁切换网络等，确保时长都能准确补发和统计
+
+---
+
+## 二、开发注意事项
+
+- **本地缓存建议用 localStorage，结构简单，易于 flush**
+- **多标签页互斥锁建议用 localStorage 或 BroadcastChannel**
+- **后端日志表加好索引，保证聚合查询效率**
+- **接口安全性要做好校验，防止恶意刷时长**
+
+---
+
+## 三、如需帮助
+
+- 需要具体的前端 hook 代码模板
+- 需要后端接口实现样例
+- 需要 SQL 表结构或聚合查询示例
+- 需要多标签页互斥锁的详细实现
+- 需要异常场景的测试用例
+    1万用户量级，PostgreSQL 单表完全可承载。
+    后期如有性能瓶颈，可用 Redis 缓存、批量入库、聚合表等方式优化。
+    方案兼容更大用户量，易于扩展。
+
+**都可以随时告诉我！我会一步步协助你完成。**
+
+---
+
+你可以直接告诉我：  
+- 先做前端还是后端？  
+- 需要哪一部分的详细代码或设计？  
+- 有哪些页面需要集成？
+
+我们可以从你最关心的部分开始！
+
+
+
+
+
+
+
+
+
+/*************************【微信扫码登录/注册方案详解 - 专区开始】*************************
+非常好！你现在要采用**微信扫码授权页跳转**（OAuth标准跳转）模式，而不是“二维码嵌入+轮询”模式。下面我帮你梳理**新方案的完整流程**和**关键技术细节**，并指出你需要如何调整前后端代码。
+
+---
+
+## 一、微信扫码授权页跳转模式的完整流程
+
+### 1. 前端
+
+- 用户点击“微信扫码登录”按钮。
+- 前端请求后端接口，获取微信扫码授权URL（带state和redirect_uri）。
+- 前端直接用 `window.location.href = qr_code_url` 跳转到微信扫码授权页。
+
+### 2. 微信扫码页
+
+- 用户用微信扫码，手机上授权。
+- 微信扫码页扫码成功后，**自动跳转回你后端配置的redirect_uri**，带上`code`和`state`参数。
+
+### 3. 后端
+
+- 后端的回调接口（如 `/auth/complete/weixin/` 或 `/callback/weixin`）收到微信回调。
+- 后端用`code`换取`access_token`和`openid`，查找/注册本地用户，生成token。
+- 后端设置`auth_token`到HttpOnly Cookie，并**重定向到前端页面**（如`/dashboard`或`/teacher`）。
+
+### 4. 前端
+
+- 用户已登录，前端页面通过Cookie自动携带token，后续API请求无需关心token。
+
+---
+
+## 二、关键技术细节与代码调整建议
+
+### 1. 前端（LoginRegister.tsx）
+
+**主要变化：**
+- 不再展示二维码，不再轮询。
+- 只需点击按钮后跳转到微信扫码页。
+
+**代码核心：**
+```tsx
+<Button
+  onClick={() => {
+    if (wechatAuthUrl) {
+      window.location.href = wechatAuthUrl;
+    } else {
+      setLoginError('微信扫码链接未准备好，请稍后重试。');
+    }
+  }}
+>
+  <WechatOutlined /> 微信扫码登录
+</Button>
+```
+- `wechatAuthUrl` 由后端接口返回，内容为微信扫码授权页的URL。
+
+---
+
+### 2. 后端（Django）
+
+#### 1）生成微信扫码授权URL接口
+
+- 你已有 `/accounts/users/wechat_qrcode/` 或类似接口，返回微信扫码URL（带state和redirect_uri）。
+- 只需保证`redirect_uri`指向你的回调接口（如 `/auth/complete/weixin/`）。
+
+#### 2）微信回调接口
+
+- 你已有 `/auth/complete/weixin/` 或 `/callback/weixin`，负责处理微信回调。
+- 用`code`换取`access_token`和`openid`，查找/注册用户，生成token。
+- 设置`auth_token`到HttpOnly Cookie。
+- **最后用`redirect`重定向到前端页面**（如`/dashboard`或`/teacher`）。
+
+**示例代码片段：**
+```python
+def wechat_callback(request):
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    # ... 用code换token，查找/注册用户 ...
+    # 设置cookie
+    response = redirect('/dashboard')  # 或你的前端首页
+    response.set_cookie(
+        key='auth_token',
+        value=token.key,
+        httponly=True,
+        samesite='Lax',
+        max_age=60*60*24*30,
+        path='/'
+    )
+    return response
+```
+
+#### 3）认证机制
+
+- 继续使用`CookieTokenAuthentication`，前端无需关心token，API自动认证。
+
+#### 4）CORS与安全
+
+- `CORS_ALLOW_CREDENTIALS = True`
+- `CORS_ALLOWED_ORIGINS`、`CSRF_TRUSTED_ORIGINS` 包含你的前端域名
+- 生产环境建议`secure=True`（只允许HTTPS）
+
+---
+
+## 三、你需要做的主要改动
+
+### 前端
+- 只保留“微信扫码登录”按钮，点击后直接跳转到微信扫码页。
+- 不再展示二维码，不再做轮询。
+
+### 后端
+- 保证生成微信扫码URL接口和回调接口逻辑正确。
+- 回调接口处理完后，设置cookie并重定向到前端页面。
+
+### 认证
+- 继续用HttpOnly Cookie存token，前端无需关心token内容。
+
+---
+
+## 四、典型接口示例（新模式）
+
+- 获取扫码URL：`POST /accounts/users/wechat_qrcode/`（返回`qr_code_url`）
+- 微信回调：`/auth/complete/weixin/?code=xxx&state=xxx`
+- 退出登录：`POST /accounts/users/logout/`（清除cookie）
+
+---
+
+## 五、方案优点
+
+- **极简体验**：用户只需点击按钮，扫码后自动登录。
+- **安全合规**：token只在后端和cookie中流转，前端无感知。
+- **兼容性好**：无iframe、无轮询，微信官方推荐。
+
+---
+
+## 六、注意事项
+
+- 微信开放平台配置的回调域名要和实际`redirect_uri`一致。
+- 前后端重定向页面要统一（如都跳转到`/dashboard`）。
+- 生产环境务必用HTTPS，cookie加`secure=True`。
+
+---
+
+如需具体代码调整、接口示例或遇到任何问题，欢迎随时提问！
+
+/*************************【微信扫码登录/注册方案详解 - 专区结束】*************************/

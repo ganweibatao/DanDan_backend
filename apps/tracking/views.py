@@ -79,22 +79,85 @@ class TeacherDailyTeachingDurationView(APIView):
              return Response({'error': '无权限，仅限老师操作'}, status=status.HTTP_403_FORBIDDEN)
 
         thirty_days_ago = timezone.now().date() - timedelta(days=30)
-
-        # 查询并聚合数据
-        daily_durations = UserDurationLog.objects.filter(
+        logs = UserDurationLog.objects.filter(
             user=user,
             type='teaching',
-            # student filter could be added here if needed for this specific view
             created_at__date__gte=thirty_days_ago
-        ).annotate(
-            date=TruncDate('created_at')  # 按日期分组
-        ).values(
-            'date'
-        ).annotate(
-            total_duration=Sum('duration') # 计算每天的总时长
-        ).order_by('date') # 按日期排序
+        ).only('client_start_time', 'client_end_time', 'created_at')
 
-        # 格式化输出
-        result = [{'date': item['date'].strftime('%Y-%m-%d'), 'duration': item['total_duration']} for item in daily_durations]
+        from collections import defaultdict
+        day_to_intervals = defaultdict(list)
+        for log in logs:
+            start = log.client_start_time or log.created_at
+            end = log.client_end_time or log.created_at
+            day = start.date()
+            day_to_intervals[day].append((start, end))
+
+        def merge_intervals(intervals):
+            if not intervals:
+                return 0
+            intervals.sort()
+            total = 0
+            prev_start, prev_end = intervals[0]
+            for start, end in intervals[1:]:
+                if start <= prev_end:
+                    prev_end = max(prev_end, end)
+                else:
+                    total += (prev_end - prev_start).total_seconds()
+                    prev_start, prev_end = start, end
+            total += (prev_end - prev_start).total_seconds()
+            return total
+
+        result = []
+        for day, intervals in day_to_intervals.items():
+            total_seconds = merge_intervals(intervals)
+            result.append({'date': day.strftime('%Y-%m-%d'), 'duration': int(total_seconds)})
+
+        result.sort(key=lambda x: x['date'])
+        return Response(result, status=status.HTTP_200_OK)
+
+class StudentDailyLearningSummaryView(APIView):
+    """返回指定学生近 N 日的学习时长与效率统计 (type='learning')"""
+    permission_classes = [IsAuthenticated]
+
+    DEFAULT_DAYS = 30
+
+    def get(self, request, student_id):
+        try:
+            days = int(request.query_params.get('days', self.DEFAULT_DAYS))
+        except ValueError:
+            return Response({'error': 'days 参数必须为整数'}, status=status.HTTP_400_BAD_REQUEST)
+        if days < 1 or days > 365:
+            return Response({'error': 'days 参数需在 1-365 之间'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 仅统计 type=learning 日志
+        start_date = timezone.now().date() - timedelta(days=days - 1)
+
+        qs = (
+            UserDurationLog.objects
+            .filter(student_id=student_id, type='learning', created_at__date__gte=start_date)
+            .annotate(day=TruncDate('created_at'))
+            .values('day')
+            .annotate(
+                duration=Sum('duration'),
+                word_count=Sum('word_count'),
+                wrong_word_count=Sum('wrong_word_count')
+            )
+            .order_by('day')
+        )
+
+        result = []
+        for row in qs:
+            wc = row['word_count'] or 0
+            wrc = row['wrong_word_count'] or 0
+            dur = row['duration'] or 0
+            result.append({
+                'date': row['day'].strftime('%Y-%m-%d'),
+                'duration': int(dur),  # 秒
+                'word_count': wc,
+                'wrong_word_count': wrc,
+                'avg_per_word': round(dur / 60 / wc, 2) if wc else None,
+                'accuracy': round(100 - wrc * 100 / wc, 1) if wc else None,
+            })
 
         return Response(result, status=status.HTTP_200_OK)

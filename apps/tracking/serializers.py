@@ -11,8 +11,14 @@ class UserDurationLogSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True
     )
+    word_count = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    wrong_word_count = serializers.IntegerField(required=False, allow_null=True, min_value=0)
 
     class Meta:
         model = UserDurationLog
-        fields = ['id', 'user', 'student', 'student_name', 'type', 'duration', 'client_start_time', 'client_end_time', 'created_at']
+        fields = [
+            'id', 'user', 'student', 'student_name',
+            'type', 'duration', 'word_count', 'wrong_word_count',
+            'client_start_time', 'client_end_time', 'created_at'
+        ]
         read_only_fields = ['id', 'user', 'created_at'] 

@@ -42,6 +42,26 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']  # 开发环境允许所有主机
 
+# 腾讯云邮件发送服务配置
+TENCENT_CLOUD_SECRET_ID = "AKIDobBawBDFGE0ZuVEoJuRlYDg5Lk8PTItG"
+TENCENT_CLOUD_SECRET_KEY = "PbaLrBwgNxLWWSExSr561mQs663ujOxO"
+TENCENT_CLOUD_REGION = "ap-guangzhou"
+EMAIL_FROM = "support@egglittle.cn"
+EMAIL_TEMPLATE_ID = 32060  # 腾讯云SES邮件模板ID
+
+# 邮箱验证码相关配置
+EMAIL_CODE_EXPIRE_MINUTES = 5  # 验证码有效期(分钟)
+EMAIL_CODE_LENGTH = 6  # 验证码长度
+EMAIL_SEND_INTERVAL = 60  # 同一邮箱发送间隔(秒)
+
+# === QQ邮箱SMTP配置 ===
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.qq.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = '751041637@qq.com'
+EMAIL_HOST_PASSWORD = 'yorukkkfqgembdii'
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # Application definition
 
@@ -59,6 +79,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'django_extensions',
+    'social_django',  # 添加social-auth-app-django
+    # 'django_crontab',  # 添加crontab支持 - 暂时注释掉
     
     # 自定义应用
     'apps.accounts',
@@ -70,7 +92,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware', # session中间件
     'corsheaders.middleware.CorsMiddleware',  # CORS中间件
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -94,6 +116,23 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
 ]
 
+# 添加或修改这一部分
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    # 新增以下解决问题的头部
+    'cache-control',
+    'pragma',
+    'expires',
+]
+
 ROOT_URLCONF = 'englishlearning.urls'
 
 TEMPLATES = [
@@ -107,10 +146,48 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'social_django.context_processors.backends',  # 添加social-auth context processors
+                'social_django.context_processors.login_redirect',
             ],
         },
     },
 ]
+
+# Social Auth 配置
+AUTHENTICATION_BACKENDS = [
+    'social_core.backends.weixin.WeixinOAuth2',  # 微信OAuth2
+    'django.contrib.auth.backends.ModelBackend',  # 默认认证后端
+]
+
+# 微信配置
+SOCIAL_AUTH_WEIXIN_KEY = 'wxcc9f65f65817f82d'  # 微信AppID
+SOCIAL_AUTH_WEIXIN_SECRET = '2bdfba31f78308bbaf16616f854ae0df'  # 微信AppSecret
+
+# 微信登录参数配置
+SOCIAL_AUTH_WEIXIN_SCOPE = ['snsapi_login']  # 微信登录权限范围
+
+# 登录完成后重定向URL
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/dashboard'  # 根据你的前端路由修改
+SOCIAL_AUTH_NEW_USER_REDIRECT_URL = '/dashboard'  # 新用户登录后重定向URL
+
+# 使用Cookie存储认证令牌
+SOCIAL_AUTH_STRATEGY = 'social_django.strategy.DjangoStrategy'
+SOCIAL_AUTH_STORAGE = 'social_django.models.DjangoStorage'
+
+# 认证过程中的pipeline，可以自定义用户创建和关联逻辑
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.social_auth.associate_by_email',  # 尝试通过邮箱关联已有账户
+    'social_core.pipeline.user.create_user',
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    'apps.accounts.pipeline.set_auth_cookie',  # 设置auth_token Cookie
+)
 
 WSGI_APPLICATION = 'englishlearning.wsgi.application'
 
@@ -205,3 +282,58 @@ CACHES = {
         'LOCATION': 'unique-snowflake', # Can be any unique name
     }
 }
+
+# 日志配置
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '[{levelname}] {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': os.path.join(BASE_DIR, 'log', 'django.log'),
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'django.request': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',  # 改为DEBUG以捕获所有请求
+            'propagate': False,
+        },
+        'django.server': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',  # 服务器请求日志级别
+            'propagate': False,
+        },
+        'apps': {
+            'handlers': ['console', 'file'],
+            'level': 'DEBUG',  # 改为DEBUG以捕获更多应用日志
+            'propagate': False,
+        },
+    },
+}
+
+# Crontab任务配置
+CRONJOBS = [
+    # 每天凌晨3点执行验证码清理任务
+    ('0 3 * * *', 'utils.cleanup_tasks.cleanup_verification_codes', '>> ' + os.path.join(BASE_DIR, 'log', 'verification_cleanup.log') + ' 2>&1'),
+]

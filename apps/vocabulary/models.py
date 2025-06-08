@@ -59,6 +59,26 @@ class BookWord(models.Model):
     word_order = models.IntegerField(default=0, verbose_name='单词在书中的顺序')
     meanings = models.JSONField(verbose_name='词性及中文释义JSON', default=list)
     example_sentence = models.TextField(blank=True, null=True, verbose_name='例句')
+    
+    # 新增自定义字段：用于词汇书特定的单词修改
+    custom_word = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        verbose_name='自定义单词拼写'
+    )
+    custom_phonetic = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True,
+        verbose_name='自定义音标'
+    )
+    custom_meanings = models.JSONField(
+        blank=True, 
+        null=True,
+        verbose_name='自定义释义（覆盖基础释义）'
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     
@@ -69,40 +89,58 @@ class BookWord(models.Model):
         indexes = [
             models.Index(fields=['vocabulary_book', 'word_order'], name='idx_book_order')
         ]
+    
+    # 优先级属性：自定义字段优先于基础字段
+    @property
+    def effective_word(self):
+        """获取有效的单词拼写：自定义 > 基础"""
+        return self.custom_word or (self.word_basic.word if self.word_basic else "Unknown Word")
+    
+    @property  
+    def effective_phonetic(self):
+        """获取有效的音标：自定义 > 基础"""
+        return self.custom_phonetic or (self.word_basic.phonetic_symbol if self.word_basic else None)
+    
+    @property
+    def effective_meanings(self):
+        """获取有效的释义：自定义 > 基础"""
+        return self.custom_meanings or self.meanings
+    
+    @property
+    def is_customized(self):
+        """判断是否被自定义过"""
+        return bool(self.custom_word or self.custom_phonetic or self.custom_meanings)
         
     def __str__(self):
-        return self.word_basic.word if self.word_basic else "Unknown Word"
+        return self.effective_word
 
-class StudentCustomization(models.Model):
-    """学生自定义单词表"""
+
+
+class StudentKnownWord(models.Model):
+    """学生已认识单词表"""
     student = models.ForeignKey(
         Student, 
         on_delete=models.CASCADE, 
-        related_name='word_customizations',
-        verbose_name='学生'
+        related_name='known_words_set', 
+        verbose_name="学生"
     )
-    word_basic = models.ForeignKey(
+    word = models.ForeignKey(
         WordBasic, 
         on_delete=models.CASCADE, 
-        related_name='student_customizations',
-        verbose_name='单词基本信息',
-        null=True,  # 允许为空，以便迁移
-        blank=True  # 允许为空，以便迁移
+        related_name='known_by_students', 
+        verbose_name="单词"
     )
-    meanings = models.JSONField(blank=True, null=True, verbose_name='学生自定义的词性及中文释义JSON')
-    example_sentence = models.TextField(blank=True, null=True, verbose_name='学生自定义的例句')
-    notes = models.TextField(blank=True, null=True, verbose_name='学生笔记')
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    
+    marked_at = models.DateTimeField(auto_now_add=True, verbose_name="标记时间")
+
     class Meta:
-        verbose_name = '学生单词自定义'
-        verbose_name_plural = '学生单词自定义'
-        db_table = 'student_customizations'
-        unique_together = ['student', 'word_basic']
+        verbose_name = "学生已认识单词"
+        verbose_name_plural = verbose_name
+        db_table = 'vocabulary_studentknownword' # 明确表名
+        unique_together = ('student', 'word')
+        ordering = ['-marked_at']
         indexes = [
-            models.Index(fields=['student', 'word_basic'], name='idx_student_word_basic')
+            models.Index(fields=['student', 'word'], name='idx_student_known_word'),
         ]
-        
+
     def __str__(self):
-        return f"{self.student.user.username} - {self.word_basic.word if self.word_basic else 'Unknown Word'}"
+        return f"{self.student.user.username} knows {self.word.word}"

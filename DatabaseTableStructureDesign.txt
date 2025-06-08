@@ -171,6 +171,20 @@ CREATE TABLE student_customizations (
 
 **说明：** 学生修改内容独立存储，查询时优先返回自定义数据，无则回退到系统词库。
 
+#### 2.5 学生已认识单词表（vocabulary_studentknownword）
+```sql
+CREATE TABLE `vocabulary_studentknownword` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录唯一标识符',
+  `student_id` INT NOT NULL COMMENT '关联的学生ID (accounts_student.id)',
+  `word_id` BIGINT NOT NULL COMMENT '关联的单词ID (word_basics.id)',
+  `marked_at` DATETIME NOT NULL COMMENT '标记为已认识的时间',
+  PRIMARY KEY (`id`),
+  FOREIGN KEY (`student_id`) REFERENCES `accounts_student` (`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`word_id`) REFERENCES `word_basics` (`id`) ON DELETE CASCADE,
+  UNIQUE KEY `idx_student_known_word` (`student_id`, `word_id`) COMMENT '确保学生对单词的标记唯一性'
+) COMMENT='存储学生标记为已认识的单词记录';
+```
+
 ### 3. 学习计划与进度跟踪相关表
 
 #### 3.1 学习计划表（learning_plans）

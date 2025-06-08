@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import VocabularyBook, BookWord, StudentCustomization, WordBasic
+from .models import VocabularyBook, BookWord, WordBasic, StudentKnownWord
 import json # Import json for parsing meanings
 from apps.accounts.models import Student
 
@@ -18,20 +18,22 @@ class WordBasicSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'updated_at']
 
 class BookWordSerializer(serializers.ModelSerializer):
-    # Explicitly define fields sourced from related models or derived
-    word = serializers.CharField(source='word_basic.word', read_only=True)
-    pronunciation = serializers.CharField(source='word_basic.phonetic_symbol', read_only=True, allow_null=True)
-    # Derive translation from the meanings JSON field
+    # 使用effective属性，优先返回自定义值
+    word = serializers.SerializerMethodField()
+    pronunciation = serializers.SerializerMethodField()
+    # Derive translation from the effective meanings JSON field
     translation = serializers.SerializerMethodField()
-    # Derive part_of_speech from the meanings JSON field
+    # Derive part_of_speech from the effective meanings JSON field
     part_of_speech = serializers.SerializerMethodField()
     example = serializers.CharField(source='example_sentence', read_only=True, allow_null=True)
     book_id = serializers.IntegerField(source='vocabulary_book_id', read_only=True)
     word_basic_id = serializers.IntegerField(source='word_basic.id', read_only=True)
+    # 新增字段：表示是否被自定义过
+    is_customized = serializers.ReadOnlyField()
 
     class Meta:
         model = BookWord
-        # Update fields to include part_of_speech
+        # Update fields to include part_of_speech and is_customized
         fields = [
             'id',
             'book_id',
@@ -42,11 +44,20 @@ class BookWordSerializer(serializers.ModelSerializer):
             'example',
             'word_order',
             'word_basic_id',
+            'is_customized',
         ]
+    
+    def get_word(self, obj):
+        """返回有效的单词拼写"""
+        return obj.effective_word
+    
+    def get_pronunciation(self, obj):
+        """返回有效的音标"""
+        return obj.effective_phonetic
 
     def get_translation(self, obj):
         """
-        Extracts the translation string from the meanings JSON based on the
+        Extracts the translation string from the effective meanings JSON based on the
         actual structure: [{"pos": "...", "meaning": "..."}].
         """
         meaning_obj = self._get_first_meaning_obj(obj)
@@ -59,7 +70,7 @@ class BookWordSerializer(serializers.ModelSerializer):
 
     def get_part_of_speech(self, obj):
         """
-        Extracts the part of speech string from the meanings JSON based on the
+        Extracts the part of speech string from the effective meanings JSON based on the
         actual structure: [{"pos": "...", "meaning": "..."}].
         """
         meaning_obj = self._get_first_meaning_obj(obj)
@@ -72,14 +83,16 @@ class BookWordSerializer(serializers.ModelSerializer):
     def _get_first_meaning_obj(self, obj):
         """
         Helper method to safely parse and return the first meaning object
-        from the meanings field. Returns the object or None or "Error parsing".
+        from the effective meanings field. Returns the object or None or "Error parsing".
         """
-        if not obj.meanings:
+        # 使用effective_meanings而不是原始meanings
+        effective_meanings = obj.effective_meanings
+        if not effective_meanings:
             return None
         try:
-            data_to_parse = obj.meanings
-            if isinstance(obj.meanings, str):
-                data_to_parse = json.loads(obj.meanings)
+            data_to_parse = effective_meanings
+            if isinstance(effective_meanings, str):
+                data_to_parse = json.loads(effective_meanings)
 
             if isinstance(data_to_parse, list) and len(data_to_parse) > 0:
                 first_meaning_obj = data_to_parse[0]
@@ -90,84 +103,123 @@ class BookWordSerializer(serializers.ModelSerializer):
             # print(f"Error parsing meanings for word ID {obj.id}: {e}")
             return "Error parsing" # Return specific error string
 
-class StudentCustomizationSerializer(serializers.ModelSerializer):
-    # student = serializers.PrimaryKeyRelatedField(read_only=True) # Kept read_only in Meta
-    # word_basic = serializers.PrimaryKeyRelatedField(queryset=WordBasic.objects.all()) # Use PrimaryKeyRelatedField for writing
-    word_spelling = serializers.CharField(source='word_basic.word', read_only=True) # Read from word_basic
+class BookWordUpdateSerializer(serializers.ModelSerializer):
+    """用于更新词库单词的序列化器 - 支持自定义字段"""
+    word = serializers.SerializerMethodField()
+    translation = serializers.SerializerMethodField()
+    part_of_speech = serializers.SerializerMethodField()
+    phonetic = serializers.SerializerMethodField()
+    example = serializers.CharField(source='example_sentence', read_only=True, allow_null=True)
 
     class Meta:
-        model = StudentCustomization
-        fields = [
-            'id', 
-            'student', # Keep student ID for reference, but set in view
-            'word_basic', # Keep word_basic ID for reference and writing
-            'word_spelling', # Read-only spelling
-            'meanings', 
-            'example_sentence', 
-            'notes', # <-- 新增字段
-            'created_at', 
-            'updated_at' # <-- 新增字段
-        ]
-        read_only_fields = ['student', 'created_at', 'updated_at', 'word_spelling']
-        extra_kwargs = {
-            'word_basic': {'write_only': True} # Allow writing word_basic ID but don't include full object on read unless explicitly asked
-        }
-        
-class BookWordWithCustomizationSerializer(BookWordSerializer):
-    """带有学生自定义内容的单词序列化器 (建议重构)
+        model = BookWord
+        fields = ['word', 'translation', 'part_of_speech', 'phonetic', 'example']
     
-    注意：此序列化器每次获取自定义字段都会查询数据库，效率较低。
-    更好的方法是在视图中使用 prefetch_related 获取所有相关的 customization，
-    然后在这里直接访问预取的数据。
-    """
-    # 尝试预取 customization 数据 (需要在视图中配合 prefetch_related)
-    # customization = StudentCustomizationSerializer(read_only=True) # 假设视图已预取
+    def get_word(self, obj):
+        """返回有效的单词拼写"""
+        return obj.effective_word
     
-    # 仍然使用 SerializerMethodField 作为后备或当前实现
-    customization = serializers.SerializerMethodField(read_only=True)
-    notes = serializers.SerializerMethodField(read_only=True)
-
-    class Meta(BookWordSerializer.Meta):
-        # 从 BookWordSerializer 继承字段，并添加新的自定义字段
-        fields = BookWordSerializer.Meta.fields + ['customization', 'notes']
-        # 如果 BookWordSerializer.Meta.fields 已经包含 customization 和 notes, 则不需要加了
-        # fields = BookWordSerializer.Meta.fields 
-
-    def get_customization(self, obj):
-        # 这个方法旨在返回完整的自定义对象，如果存在的话
-        request = self.context.get('request')
-        if not request or not request.user.is_authenticated or not hasattr(request.user, 'student'):
+    def get_translation(self, obj):
+        """返回有效的翻译"""
+        meaning_obj = self._get_first_meaning_obj(obj)
+        if meaning_obj and 'meaning' in meaning_obj:
+            translation_text = meaning_obj['meaning']
+            return str(translation_text) if translation_text is not None else None
+        return None
+    
+    def get_part_of_speech(self, obj):
+        """返回有效的词性"""
+        meaning_obj = self._get_first_meaning_obj(obj)
+        if meaning_obj and 'pos' in meaning_obj:
+            pos_text = meaning_obj['pos']
+            return str(pos_text) if pos_text is not None else None
+        return None
+    
+    def get_phonetic(self, obj):
+        """返回有效的音标"""
+        return obj.effective_phonetic
+    
+    def _get_first_meaning_obj(self, obj):
+        """获取第一个meaning对象的辅助方法"""
+        effective_meanings = obj.effective_meanings
+        if not effective_meanings:
             return None
-            
-        # 尝试从预取的数据中获取 (推荐方式)
-        # 检查 obj 是否有关联的 student_customizations (如果使用了 prefetch_related)
-        # prefetched_customizations = getattr(obj, 'student_customizations_prefetched', None)
-        # if prefetched_customizations:
-        #     # 假设 prefetch_related('student_customizations', queryset=StudentCustomization.objects.filter(student=request.user.student))
-        #     # 理论上这里应该只有一个或零个
-        #     customization = prefetched_customizations[0] if prefetched_customizations else None
-        #     if customization:
-        #        return StudentCustomizationSerializer(customization).data
-        #     return None
-
-        # 后备方式：单独查询 (效率较低)
         try:
-            student = request.user.student
-            # 确保 obj.word_basic 存在
-            if not obj.word_basic:
-                 return None
-            customization = StudentCustomization.objects.filter(student=student, word_basic=obj.word_basic).first()
-            return StudentCustomizationSerializer(customization).data if customization else None
-        except AttributeError: # Handle cases where request.user might not have student
+            data_to_parse = effective_meanings
+            if isinstance(effective_meanings, str):
+                data_to_parse = json.loads(effective_meanings)
+
+            if isinstance(data_to_parse, list) and len(data_to_parse) > 0:
+                first_meaning_obj = data_to_parse[0]
+                if isinstance(first_meaning_obj, dict):
+                    return first_meaning_obj
             return None
-        except Student.DoesNotExist: # Handle cases where student profile doesn't exist
+        except (json.JSONDecodeError, TypeError, IndexError):
             return None
 
-    def get_notes(self, obj):
-        # 直接从 get_customization 返回的数据中提取 notes，避免重复查询
-        customization_data = self.get_customization(obj)
-        return customization_data.get('notes') if customization_data else None
+    def update(self, instance, validated_data):
+        # 权限检查：禁止修改系统预设词库
+        if instance.vocabulary_book and instance.vocabulary_book.is_system_preset:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("系统预设词库不允许修改")
+        
+        # 注意：validated_data现在是从请求中传入的数据，不是从SerializerMethodField获取的
+        # 我们需要从self.initial_data中获取原始输入数据
+        input_data = self.initial_data
+        
+        # 获取example_sentence数据
+        example_sentence = input_data.get('example', None)
+        
+        # 使用自定义字段存储修改，保持WordBasic表不变
+        if 'word' in input_data:
+            instance.custom_word = input_data['word']
+        
+        if 'phonetic' in input_data:
+            instance.custom_phonetic = input_data['phonetic']
 
-    # 移除 get_custom_chinese_meaning 和 get_custom_example_sentence
-    # 因为 get_customization 已经返回了包含这些信息的完整对象
-    # 如果前端只需要特定的字段，可以让前端从 customization 对象中提取
+        # 处理自定义释义
+        if 'translation' in input_data or 'part_of_speech' in input_data:
+            # 获取当前有效的meanings作为基础
+            current_meanings = instance.effective_meanings or []
+            if isinstance(current_meanings, str):
+                try:
+                    current_meanings = json.loads(current_meanings)
+                except json.JSONDecodeError:
+                    current_meanings = []
+            
+            if not isinstance(current_meanings, list):
+                current_meanings = []
+
+            # 确保至少有一个meaning条目
+            if len(current_meanings) == 0:
+                current_meanings.append({})
+            
+            # 更新第一个meaning条目
+            if 'translation' in input_data:
+                current_meanings[0]['meaning'] = input_data['translation']
+            if 'part_of_speech' in input_data:
+                current_meanings[0]['pos'] = input_data['part_of_speech']
+
+            # 保存到custom_meanings字段
+            instance.custom_meanings = current_meanings
+
+        # 更新例句
+        if example_sentence is not None:
+            instance.example_sentence = example_sentence
+
+        instance.save()
+        return instance
+
+class StudentKnownWordSerializer(serializers.ModelSerializer):
+    student = serializers.PrimaryKeyRelatedField(queryset=Student.objects.all())
+    word = serializers.PrimaryKeyRelatedField(queryset=WordBasic.objects.all())
+
+    class Meta:
+        model = StudentKnownWord
+        fields = ['id', 'student', 'word', 'marked_at']
+        read_only_fields = ['marked_at']
+
+    def create(self, validated_data):
+        # Prevent duplicate entries
+        instance, created = StudentKnownWord.objects.get_or_create(**validated_data)
+        return instance
