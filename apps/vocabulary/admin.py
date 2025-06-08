@@ -2,12 +2,42 @@ from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.db.models import Max
+from django.db.models import Max, Q
 import csv
 import io
 from .models import (
-    VocabularyBook, BookWord, StudentCustomization, WordBasic
+    VocabularyBook, BookWord, WordBasic, StudentKnownWord
 )
+
+
+class CustomizedFilter(admin.SimpleListFilter):
+    title = '自定义状态'
+    parameter_name = 'customized'
+
+    def lookups(self, request, model_admin):
+        return (
+            ('yes', '已自定义'),
+            ('no', '未自定义'),
+        )
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.filter(
+                Q(custom_word__isnull=False) | 
+                Q(custom_phonetic__isnull=False) | 
+                Q(custom_meanings__isnull=False)
+            ).exclude(
+                Q(custom_word='') & 
+                Q(custom_phonetic='') & 
+                Q(custom_meanings__isnull=True)
+            )
+        elif self.value() == 'no':
+            return queryset.filter(
+                Q(custom_word__isnull=True) | Q(custom_word=''),
+                Q(custom_phonetic__isnull=True) | Q(custom_phonetic=''),
+                Q(custom_meanings__isnull=True)
+            )
+        return queryset
 
 @admin.register(WordBasic)
 class WordBasicAdmin(admin.ModelAdmin):
@@ -31,15 +61,37 @@ class VocabularyBookAdmin(admin.ModelAdmin):
 
 @admin.register(BookWord)
 class BookWordAdmin(admin.ModelAdmin):
-    list_display = ('get_word', 'vocabulary_book', 'word_order')
-    list_filter = ('vocabulary_book',)
-    search_fields = ('word_basic__word', 'example_sentence')
+    list_display = ('get_word', 'vocabulary_book', 'word_order', 'is_customized')
+    list_filter = ('vocabulary_book', CustomizedFilter)
+    search_fields = ('word_basic__word', 'custom_word', 'example_sentence')
     ordering = ('vocabulary_book', 'word_order')
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'is_customized')
+    
+    fieldsets = (
+        ('基础信息', {
+            'fields': ('vocabulary_book', 'word_basic', 'word_order')
+        }),
+        ('自定义字段', {
+            'fields': ('custom_word', 'custom_phonetic', 'custom_meanings'),
+            'description': '这些字段用于词汇书特定的自定义，会覆盖基础信息'
+        }),
+        ('其他信息', {
+            'fields': ('meanings', 'example_sentence')
+        }),
+        ('系统信息', {
+            'fields': ('is_customized', 'created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
     
     def get_word(self, obj):
-        return obj.word_basic.word if obj.word_basic else "未知单词"
-    get_word.short_description = '单词'
+        return obj.effective_word
+    get_word.short_description = '有效单词'
+    
+    def is_customized(self, obj):
+        return obj.is_customized
+    is_customized.boolean = True
+    is_customized.short_description = '已自定义'
     
     def get_urls(self):
         urls = super().get_urls()
@@ -423,13 +475,16 @@ class BookWordAdmin(admin.ModelAdmin):
             self.message_user(request, f"导入失败: {str(e)}", level=messages.ERROR)
             return redirect('admin:vocabulary_bookword_changelist')
 
-@admin.register(StudentCustomization)
-class StudentCustomizationAdmin(admin.ModelAdmin):
-    list_display = ('student', 'get_word', 'created_at')
-    list_filter = ('student',)
-    search_fields = ('student__user__username', 'word_basic__word')
-    readonly_fields = ('created_at',)
+
+
+@admin.register(StudentKnownWord)
+class StudentKnownWordAdmin(admin.ModelAdmin):
+    list_display = ('student', 'get_word', 'marked_at')
+    list_filter = ('student', 'marked_at')
+    search_fields = ('student__user__username', 'word__word')
+    readonly_fields = ('marked_at',)
     
     def get_word(self, obj):
-        return obj.word_basic.word
+        """返回关联单词的拼写"""
+        return obj.word.word if obj.word else "未知单词"
     get_word.short_description = '单词' 

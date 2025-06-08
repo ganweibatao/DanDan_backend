@@ -1,14 +1,15 @@
 from django.contrib.auth.models import User
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login
 from django.db import transaction
-from django.shortcuts import get_object_or_404
-from .models import Teacher, Student, StudentTeacherRelationship
+from django.shortcuts import get_object_or_404, redirect
+from .models import Teacher, Student, StudentTeacherRelationship, EmailVerificationCode
 from .serializers import UserSerializer, TeacherSerializer, StudentSerializer
-from rest_framework.permissions import IsAuthenticated
+from .serializers import EmailSerializer, EmailVerificationCodeSerializer, VerifyEmailCodeSerializer
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from .permissions import IsTeacher, IsStudent, IsTeacherOrAdmin, IsTeacherOwnerOrAdmin, IsStudentOwnerOrRelatedTeacherOrAdmin
 from django.core.cache import cache
 from django.core.mail import send_mail
@@ -18,6 +19,24 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from apps.tracking.models import UserDurationLog
 from django.db.models import Sum
+import uuid
+from urllib.parse import quote
+import requests
+from django.http import HttpResponseRedirect, JsonResponse
+from social_django.models import UserSocialAuth
+import time
+import logging
+from rest_framework.views import APIView
+from social_django.utils import psa
+import os
+import datetime
+from django.utils import timezone
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+# from utils.email_service import EmailService  # 暂时注释掉
+
+# 获取日志记录器
+logger = logging.getLogger('django')
 
 class UserViewSet(viewsets.ModelViewSet):
     """
@@ -66,11 +85,9 @@ class UserViewSet(viewsets.ModelViewSet):
                 'error': '该邮箱已被注册'
             }, status=status.HTTP_400_BAD_REQUEST)
             
-        # 验证用户名(邮箱)是否已被注册
-        if User.objects.filter(username=email).exists():
-             return Response({
-                 'error': '该用户名(邮箱)已被注册'
-             }, status=status.HTTP_400_BAD_REQUEST)
+        # 允许用户名重复，不再校验唯一性
+        # if User.objects.filter(username=username).exists():
+        #      return Response({'error': f"用户名 '{username}' 已存在"}, status=status.HTTP_400_BAD_REQUEST)
             
         # 使用邮箱作为用户名创建用户
         user = User.objects.create_user(
@@ -276,6 +293,220 @@ class UserViewSet(viewsets.ModelViewSet):
         user.delete()
         return Response({'message': '账户已删除'}, status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=False, methods=['post'], permission_classes=[permissions.IsAuthenticated])
+    def logout(self, request):
+        response = Response({'message': '已退出登录'}, status=status.HTTP_200_OK)
+        response.delete_cookie('auth_token')  # 清除 token cookie
+        # 如果你还用 session，也可以加上
+        from django.contrib.auth import logout as django_logout
+        django_logout(request)
+        return response
+
+    @action(detail=False, methods=['GET'], permission_classes=[permissions.AllowAny])
+    def wechat_qrcode(self, request):
+        """生成微信扫码授权URL（不再需要轮询）"""
+        # 生成用于防CSRF的state参数
+        state_value = uuid.uuid4().hex # Renamed state to state_value for clarity
+        # 使用固定的 key 存储 state_value
+        request.session['wechat_auth_state_key'] = state_value 
+        request.session.set_expiry(300) # 设置 state 在 session 中5分钟后过期
+
+        # 动态构建redirect_uri
+        scheme = request.scheme
+        host = request.get_host()
+        redirect_path = '/api/accounts/users/wechat_callback/' # 与urls.py一致
+        redirect_uri = f"{scheme}://{host}{redirect_path}"
+
+        # 构建微信授权URL
+        # 注意：appid需要替换为你自己的
+        appid = settings.SOCIAL_AUTH_WEIXIN_KEY
+        auth_url = f"https://open.weixin.qq.com/connect/qrconnect?appid={appid}&redirect_uri={quote(redirect_uri)}&response_type=code&scope=snsapi_login&state={state_value}#wechat_redirect" # Pass state_value in URL
+
+        logger.info(f"生成微信扫码授权URL: state={state_value}, redirect_uri={redirect_uri}")
+
+        return Response({
+            'auth_url': auth_url
+            # 不再需要返回 state 给前端，因为它由后端 session 管理
+        })
+
+    @action(detail=False, methods=['GET'], permission_classes=[permissions.AllowAny]) # 注意：回调通常不需要 CSRF 保护，但 state 验证是必须的
+    def wechat_callback(self, request):
+        """微信回调接口，处理授权结果并重定向到前端"""
+        code = request.GET.get('code')
+        state_from_wechat = request.GET.get('state')
+        
+        logger.info(f"微信回调接收到 code: {code}, state: {state_from_wechat}")
+
+        # 0. 初始化 created 变量
+        created = False
+
+        # 1. 验证 state
+        # 使用固定的 key 'wechat_auth_state_key' 来获取之前存储的 state_value
+        expected_state_value = request.session.pop('wechat_auth_state_key', None) 
+
+        if not code or not state_from_wechat:
+            logger.error("微信回调缺少必要参数 code 或 state")
+            return redirect('/login?error=wx_callback_missing_params') # 前端需要处理这个错误
+
+        if expected_state_value is None:
+            logger.warning(f"微信回调 state 验证失败：session 中未找到期望的 state 或已过期。收到的 state: {state_from_wechat}")
+            return redirect('/login?error=wx_callback_state_expired') 
+        
+        if state_from_wechat != expected_state_value:
+            logger.warning(f"微信回调 state 验证失败：收到的 state ({state_from_wechat}) 与期望的 state ({expected_state_value}) 不匹配")
+            return redirect('/login?error=wx_callback_state_mismatch')
+
+        logger.info(f"微信回调 state 验证成功: {state_from_wechat}")
+
+        try:
+            # 用code换取access_token和openid
+            # 注意：appid 和 secret 需要替换为你自己的
+            appid = settings.SOCIAL_AUTH_WEIXIN_KEY
+            secret = settings.SOCIAL_AUTH_WEIXIN_SECRET
+            
+            token_response = requests.get(
+                'https://api.weixin.qq.com/sns/oauth2/access_token',
+                params={
+                    'appid': appid,
+                    'secret': secret,
+                    'code': code,
+                    'grant_type': 'authorization_code'
+                }
+            )
+            token_response.raise_for_status() # 如果请求失败则抛出HTTPError
+            wx_data = token_response.json()
+
+            if 'errcode' in wx_data:
+                logger.error(f"微信API错误 (获取token): {wx_data.get('errmsg')}")
+                error_msg = quote(wx_data.get('errmsg', '微信API未知错误'))
+                return redirect(f'/login?error=wx_api_token&msg={error_msg}')
+
+            access_token = wx_data['access_token']
+            openid = wx_data['openid']
+
+            # 获取微信用户信息
+            user_info_response = requests.get(
+                'https://api.weixin.qq.com/sns/userinfo',
+                params={
+                    'access_token': access_token,
+                    'openid': openid,
+                    'lang': 'zh_CN'
+                }
+            )
+
+            # 强制使用 UTF-8 解码
+            user_info_response.encoding = 'utf-8'
+
+            # 然后再调用 .json()
+            user_info = user_info_response.json()
+
+            if 'errcode' in user_info:
+                logger.error(f"微信API错误 (获取用户信息): {user_info.get('errmsg')}")
+                error_msg = quote(user_info.get('errmsg', '微信API未知错误'))
+                return redirect(f'/login?error=wx_api_userinfo&msg={error_msg}')
+
+            # 查找已绑定的用户，或创建新用户
+            # 使用 social_django 的 UserSocialAuth 模型来简化处理
+            try:
+                social_user = UserSocialAuth.objects.get(provider='weixin', uid=openid)
+                user = social_user.user
+                logger.info(f"微信登录：用户已存在 {user.username} (uid: {openid})")
+            except UserSocialAuth.DoesNotExist:
+                # 创建新用户并关联
+                email = user_info.get('email', '')
+                
+                with transaction.atomic(): # 确保用户和 social_user 的创建是原子的
+                    user, created = User.objects.get_or_create(
+                        username=user_info.get('nickname', f"wx_{openid[:12]}"), # 用微信昵称作为用户名
+                        defaults={
+                            'email': email,
+                            'first_name': user_info.get('nickname', ''),
+                            # 密码可以设为不可用，因为他们是通过微信登录的
+                            # user.set_unusable_password() # 最好在创建后调用
+                        }
+                    )
+                    if created:
+                        print("[WeChat] user_info:", user_info)
+                        user.set_unusable_password()
+                        user.save()
+                        logger.info(f"微信登录：创建新用户 {user.username} (uid: {openid})")
+                        gender_map = {1: 'female', 0: 'male'}
+                        # 兼容字符串或整数的 sex 值
+                        gender_value = gender_map.get(user_info.get('sex'), 'other')
+                        # 下载微信头像到本地
+                        avatar_url = user_info.get('headimgurl', '')
+                        avatar_file = None
+                        if avatar_url:
+                            try:
+                                avatar_resp = requests.get(avatar_url, timeout=5)
+                                if avatar_resp.status_code == 200:
+                                    ext = os.path.splitext(avatar_url)[-1][:5] or '.jpg'
+                                    avatar_name = f"avatars/wx_{user.id}{ext}"
+                                    avatar_file = ContentFile(avatar_resp.content)
+                                    avatar_path = default_storage.save(avatar_name, avatar_file)
+                                else:
+                                    avatar_path = ''
+                            except Exception as e:
+                                logger.warning(f"下载微信头像失败: {e}")
+                                avatar_path = ''
+                        else:
+                            avatar_path = ''
+                        Teacher.objects.create(
+                            user=user,
+                            avatar=avatar_path,
+                            real_name=user_info.get('nickname', ''),
+                            province=user_info.get('province', ''),
+                            city=user_info.get('city', ''),
+                            gender=gender_value
+                        )
+                    
+                    social_user, social_created = UserSocialAuth.objects.update_or_create(
+                        user=user,
+                        provider='weixin',
+                        uid=openid,
+                        defaults={'extra_data': user_info} # 存储原始微信用户信息，包括 access_token, openid 等
+                    )
+                    if social_created and not created: # 用户已存在，但首次绑定微信
+                        logger.info(f"微信登录：用户 {user.username} 首次绑定微信 (uid: {openid})")
+
+
+            # 生成 DRF Token (如果你的API主要用TokenAuthentication)
+            # 或者直接使用Django的session登录 (如果你的API用SessionAuthentication)
+            # 当前后端是 CookieTokenAuthentication, Token 会被设置到 cookie
+            
+            token, _ = Token.objects.get_or_create(user=user)
+
+            # 使用Django的login函数，这会设置session，对于依赖session的Django功能有用
+            login(request, user, backend='django.contrib.auth.backends.ModelBackend') # 指定backend避免冲突
+            
+            # 构建前端重定向响应
+            if created:
+                frontend_redirect_url = '/settings/profile'
+            else:
+                frontend_redirect_url = '/teacher'
+            response = redirect(frontend_redirect_url)
+
+            # 设置认证Cookie (auth_token)
+            response.set_cookie(
+                key='auth_token',
+                value=token.key,
+                httponly=True,
+                samesite='Lax', # 'Strict' 更安全，但 'Lax' 更兼容
+                max_age=settings.SESSION_COOKIE_AGE if hasattr(settings, 'SESSION_COOKIE_AGE') else 60*60*24*14,  # 例如两周
+                path='/',
+                secure=not settings.DEBUG # 在生产环境 (HTTPS) 应设置为 True
+            )
+
+            logger.info(f"微信登录成功：用户 {user.username}, 重定向到 {frontend_redirect_url}")
+            return response
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"微信API请求错误: {e}")
+            return redirect('/login?error=wx_api_request_failed')
+        except Exception as e:
+            logger.error(f"微信回调处理未知错误: {e}", exc_info=True) # exc_info=True 会记录堆栈跟踪
+            return redirect('/login?error=wx_callback_server_error')
+
     def get_permissions(self):
         """
         为不同的 action 设置不同的权限。
@@ -367,8 +598,9 @@ class TeacherViewSet(viewsets.ModelViewSet):
         # Check existing User (email or username)
         if User.objects.filter(email=email).exists():
             return Response({'error': f"邮箱 '{email}' 已被注册"}, status=status.HTTP_400_BAD_REQUEST)
-        if User.objects.filter(username=username).exists():
-             return Response({'error': f"用户名 '{username}' 已存在"}, status=status.HTTP_400_BAD_REQUEST)
+        # 允许用户名重复，不再校验唯一性
+        # if User.objects.filter(username=username).exists():
+        #      return Response({'error': f"用户名 '{username}' 已存在"}, status=status.HTTP_400_BAD_REQUEST)
 
         # --- Create User ---
         try:
@@ -528,3 +760,198 @@ class StudentViewSet(viewsets.ModelViewSet):
             for sid in student_ids
         ]
         return Response(result)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def send_email_code(request):
+    """
+    发送邮箱验证码API
+    
+    请求参数:
+    - email: 邮箱地址
+    
+    返回:
+    - 成功: {success: true, message: '验证码已发送'}
+    - 失败: {success: false, error: '错误信息'}
+    """
+    serializer = EmailSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'error': '无效的邮箱地址'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    email = serializer.validated_data['email']
+    
+    # 检查同一邮箱是否频繁请求验证码（限流）
+    cache_key = f"email_send_limit:{email}"
+    if cache.get(cache_key):
+        return Response({
+            'success': False,
+            'error': f'同一邮箱发送过于频繁，请{settings.EMAIL_SEND_INTERVAL}秒后再试'
+        }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+    
+    # 生成6位数字验证码
+    code = ''.join(random.choice('0123456789') for _ in range(settings.EMAIL_CODE_LENGTH))
+    
+    # 设置过期时间
+    expires_at = timezone.now() + datetime.timedelta(minutes=settings.EMAIL_CODE_EXPIRE_MINUTES)
+    
+    # 保存验证码记录
+    try:
+        EmailVerificationCode.objects.create(
+            email=email,
+            code=code,
+            expires_at=expires_at
+        )
+    except Exception as e:
+        logger.error(f"保存验证码失败: {email}, 错误: {e}")
+        return Response({
+            'success': False,
+            'error': '服务器错误，请稍后再试'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    # 异步发送邮件
+    try:
+        EmailService.send_verification_code(email, code)
+        
+        # 设置发送间隔限制（防止频繁请求）
+        cache.set(cache_key, 1, settings.EMAIL_SEND_INTERVAL)
+        
+        return Response({
+            'success': True,
+            'message': '验证码已发送，有效期5分钟'
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.error(f"邮件发送出错: {email}, 错误: {e}")
+        return Response({
+            'success': False,
+            'error': '邮件发送失败，请稍后再试'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_email_code(request):
+    """
+    验证邮箱验证码API
+    
+    请求参数:
+    - email: 邮箱地址
+    - code: 验证码
+    
+    返回:
+    - 成功: {success: true, message: '验证通过'}
+    - 失败: {success: false, error: '错误信息'}
+    """
+    serializer = VerifyEmailCodeSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({
+            'success': False,
+            'error': '请提供有效的邮箱和验证码'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    email = serializer.validated_data['email']
+    code = serializer.validated_data['code']
+    
+    # 查询最新的未使用验证码
+    try:
+        verification = EmailVerificationCode.objects.filter(
+            email=email,
+            code=code,
+            is_used=False,
+            expires_at__gt=timezone.now()
+        ).order_by('-created_at').first()
+        
+        if not verification:
+            return Response({
+                'success': False,
+                'error': '验证码无效或已过期'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 标记验证码已使用
+        verification.is_used = True
+        verification.save()
+        
+        return Response({
+            'success': True,
+            'message': '验证通过'
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f"验证码校验出错: {email}, code: {code}, 错误: {e}")
+        return Response({
+            'success': False,
+            'error': '服务器错误，请稍后再试'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    """
+    通过邮箱验证码重置用户密码
+
+    请求参数:
+    - email: 邮箱地址
+    - code: 邮箱验证码
+    - new_password: 新密码
+
+    返回:
+    - 成功: {success: true, message: '密码已重置'}
+    - 失败: {success: false, error: '错误信息'}
+    """
+    email = request.data.get('email')
+    code = request.data.get('code')
+    new_password = request.data.get('new_password')
+
+    # 基础校验
+    if not email or not code or not new_password:
+        return Response({
+            'success': False,
+            'error': '请提供邮箱、验证码和新密码'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    # 再次校验邮箱格式
+    from django.core.validators import validate_email as django_validate_email
+    from django.core.exceptions import ValidationError as DjangoValidationError
+    try:
+        django_validate_email(email)
+    except DjangoValidationError:
+        return Response({'success': False, 'error': '邮箱格式不正确'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # 校验验证码有效性
+    try:
+        verification = EmailVerificationCode.objects.filter(
+            email=email,
+            code=code,
+            is_used=False,
+            expires_at__gt=timezone.now()
+        ).order_by('-created_at').first()
+        if not verification:
+            return Response({'success': False, 'error': '验证码无效或已过期'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"验证码查询失败: {email}, code: {code}, 错误: {e}")
+        return Response({'success': False, 'error': '服务器错误，请稍后再试'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # 获取用户并重置密码
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'success': False, 'error': '未找到该邮箱对应的用户'}, status=status.HTTP_404_NOT_FOUND)
+
+    # 验证新密码强度
+    try:
+        validate_password(new_password, user=user)
+    except ValidationError as e:
+        return Response({'success': False, 'error': '新密码不符合要求: ' + '; '.join(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user.set_password(new_password)
+        user.save()
+        # 标记验证码已使用
+        verification.is_used = True
+        verification.save()
+    except Exception as e:
+        logger.error(f"重置密码失败: {email}, 错误: {e}")
+        return Response({'success': False, 'error': '重置密码失败，请稍后再试'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({'success': True, 'message': '密码已重置'}, status=status.HTTP_200_OK)

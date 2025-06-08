@@ -1,14 +1,15 @@
-from rest_framework import viewsets, permissions, filters, status, serializers, generics
+from rest_framework import viewsets, permissions, filters, status, serializers, generics, mixins
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
-from django.http import HttpResponse
-from .models import VocabularyBook, BookWord, StudentCustomization, WordBasic
+from django.http import HttpResponse, JsonResponse
+from .models import VocabularyBook, BookWord, WordBasic, StudentKnownWord
 from .serializers import (
-    VocabularyBookSerializer, BookWordSerializer, StudentCustomizationSerializer,
-    BookWordWithCustomizationSerializer, WordBasicSerializer
+    VocabularyBookSerializer, BookWordSerializer,
+    WordBasicSerializer, StudentKnownWordSerializer,
+    BookWordUpdateSerializer
 )
 import csv
 import io
@@ -18,6 +19,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth.models import User
 from apps.accounts.models import Student
 import requests
+import re
 
 # 尝试导入Student模型
 try:
@@ -71,14 +73,14 @@ class BookWordViewSet(viewsets.ModelViewSet):
     serializer_class = BookWordSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['vocabulary_book', 'difficulty_level']
-    search_fields = ['word', 'chinese_meaning', 'example_sentence']
-    ordering_fields = ['word_order', 'word', 'difficulty_level', 'created_at']
+    filterset_fields = ['vocabulary_book']
+    search_fields = ['word_basic__word', 'example_sentence']
+    ordering_fields = ['word_order', 'word_basic__word', 'created_at']
     
     def get_serializer_class(self):
         """根据请求动态选择序列化器"""
-        if self.request.query_params.get('with_customization') == 'true':
-            return BookWordWithCustomizationSerializer
+        if self.action in ['update', 'partial_update']:
+            return BookWordUpdateSerializer
         return BookWordSerializer
     
     @action(detail=False, methods=['get'])
@@ -100,129 +102,9 @@ class BookWordViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({"error": f"获取单词失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
-    @action(detail=False, methods=['post'], parser_classes=[MultiPartParser, FormParser])
-    def import_words(self, request):
-        """批量导入单词API"""
-        csv_file = request.FILES.get('csv_file')
-        book_id = request.data.get('book_id')
-        
-        if not csv_file or not book_id:
-            return Response({"error": "请提供CSV文件和词汇书ID"}, status=status.HTTP_400_BAD_REQUEST)
-        
-        try:
-            book = VocabularyBook.objects.get(id=book_id)
-            decoded_file = csv_file.read().decode('utf-8')
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
-            
-            word_count = 0
-            imported_words = []
-            
-            # 获取当前词汇书中最大的word_order
-            max_order = BookWord.objects.filter(vocabulary_book=book).aggregate(
-                models.Max('word_order')
-            ).get('word_order__max') or 0
-            
-            for row in reader:
-                # 确保CSV文件包含所需字段
-                if 'word' not in row or 'chinese_meaning' not in row:
-                    return Response(
-                        {"error": "CSV文件格式错误。必须包含'word'和'chinese_meaning'列"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
-                # 创建或更新单词
-                max_order += 1
-                
-                # 处理词性字段
-                part_of_speech = row.get('part_of_speech', '')
-                # 不再验证词性是否在预定义选项中，直接使用用户输入的值
-                
-                word, created = BookWord.objects.update_or_create(
-                    vocabulary_book=book,
-                    word=row['word'],
-                    defaults={
-                        'word_order': int(row.get('word_order')) if row.get('word_order') and row.get('word_order').strip() else max_order,
-                        'phonetic_symbol': row.get('phonetic_symbol', ''),
-                        'part_of_speech': part_of_speech,
-                        'chinese_meaning': row['chinese_meaning'],
-                        'example_sentence': row.get('example_sentence', ''),
-                        'difficulty_level': int(row.get('difficulty_level', 1))
-                    }
-                )
-                word_count += 1
-                imported_words.append(BookWordSerializer(word).data)
-            
-            # 更新词汇书的词汇量
-            total_words = BookWord.objects.filter(vocabulary_book=book).count()
-            book.word_count = total_words
-            book.save()
-            
-            return Response({
-                "message": f"成功导入 {word_count} 个单词到词汇书 '{book.name}'",
-                "imported_words": imported_words
-            }, status=status.HTTP_201_CREATED)
-        
-        except VocabularyBook.DoesNotExist:
-            return Response({"error": "指定的词汇书不存在"}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({"error": f"导入失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class StudentCustomizationViewSet(viewsets.ModelViewSet):
-    """
-    API端点，允许学生自定义单词查看或编辑
-    """
-    serializer_class = StudentCustomizationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        """只返回当前学生的自定义内容"""
-        try:
-            student = get_student_or_none(self.request.user)
-            if not student:
-                return StudentCustomization.objects.none()
-            return StudentCustomization.objects.filter(student=student)
-        except:
-            return StudentCustomization.objects.none()
-    
-    def perform_create(self, serializer):
-        """创建时自动关联当前学生"""
-        student = get_student_or_none(self.request.user)
-        if not student:
-            raise serializers.ValidationError("用户必须是学生才能自定义单词")
-        serializer.save(student=student)
-    
-    @action(detail=False, methods=['post'])
-    def customize_word(self, request):
-        """创建或更新学生对单词的自定义内容"""
-        student = get_student_or_none(request.user)
-        if not student:
-            return Response({"error": "用户必须是学生才能自定义单词"}, status=403)
-            
-        word_id = request.data.get('word_id')
-        chinese_meaning = request.data.get('chinese_meaning')
-        example_sentence = request.data.get('example_sentence')
-        
-        if not word_id:
-            return Response({"error": "请提供word_id参数"}, status=400)
-            
-        try:
-            word = BookWord.objects.get(id=word_id)
-        except BookWord.DoesNotExist:
-            return Response({"error": "指定的单词不存在"}, status=404)
-            
-        # 创建或更新自定义内容
-        customization, created = StudentCustomization.objects.update_or_create(
-            student=student,
-            word=word,
-            defaults={
-                'chinese_meaning': chinese_meaning,
-                'example_sentence': example_sentence
-            }
-        )
-        
-        serializer = StudentCustomizationSerializer(customization)
-        return Response(serializer.data)
+
+
 
 # 词库分页
 class StandardResultsSetPagination(PageNumberPagination):
@@ -262,104 +144,7 @@ class BookWordDetailView(generics.RetrieveAPIView):
     def get_queryset(self):
         return BookWord.objects.all().select_related('word_basic')
 
-# 学生单词自定义列表API
-class StudentCustomizationListView(generics.ListCreateAPIView):
-    serializer_class = StudentCustomizationSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        student = get_student_or_none(self.request.user)
-        return StudentCustomization.objects.filter(student=student).select_related('word_basic').order_by('-updated_at')
-
-    def perform_create(self, serializer):
-        student = get_student_or_none(self.request.user)
-        word_basic_id = self.request.data.get('word_basic')
-        if not word_basic_id:
-            raise serializers.ValidationError({"word_basic": "This field is required."})
-        word_basic = get_object_or_404(WordBasic, id=word_basic_id)
-        
-        if StudentCustomization.objects.filter(student=student, word_basic=word_basic).exists():
-             raise serializers.ValidationError({"detail": "Customization for this word already exists. Use PATCH/PUT to update."})
-
-        serializer.save(student=student, word_basic=word_basic)
-
-# 学生单词自定义详情API
-class StudentCustomizationDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = StudentCustomizationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    lookup_field = 'pk'
-
-    def get_queryset(self):
-        student = get_student_or_none(self.request.user)
-        return StudentCustomization.objects.filter(student=student).select_related('word_basic')
-
-# 获取用户自定义或默认单词API
-class UserWordView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, word_basic_id):
-        student = get_student_or_none(request.user)
-        word_basic = get_object_or_404(WordBasic, id=word_basic_id)
-        
-        custom_word = StudentCustomization.objects.filter(
-            student=student,
-            word_basic=word_basic
-        ).select_related('word_basic').first()
-        
-        if custom_word:
-            serializer = StudentCustomizationSerializer(custom_word)
-            return Response(serializer.data)
-        
-        book_word = BookWord.objects.filter(word_basic=word_basic).select_related('word_basic').first()
-        if book_word:
-            serializer = BookWordSerializer(book_word)
-            data = serializer.data
-            data['notes'] = None
-            data['word_basic'] = word_basic.id
-            return Response(data)
-        
-        basic_serializer = WordBasicSerializer(word_basic)
-        data = basic_serializer.data
-        data['notes'] = None
-        data['meanings'] = None
-        data['example_sentence'] = None
-        data['word_basic'] = word_basic.id
-        return Response(data, status=status.HTTP_200_OK)
-
-    def post(self, request, word_basic_id):
-        print("请求数据:", request.data)
-        # 下面是你原有的逻辑
-        student_id = request.data.get('student_id')
-        if student_id:
-            student = get_object_or_404(Student, id=student_id)
-        else:
-            student = Student.objects.filter(user=request.user).first()
-            if not student:
-                return Response({"detail": "未指定学生，且当前用户不是学生"}, status=status.HTTP_403_FORBIDDEN)
-
-        word_basic = get_object_or_404(WordBasic, id=word_basic_id)
-        data = request.data.copy()
-
-        customization, created = StudentCustomization.objects.get_or_create(
-            student=student,
-            word_basic=word_basic,
-            defaults={
-                'meanings': data.get('meanings'),
-                'example_sentence': data.get('example_sentence'),
-                'notes': data.get('notes')
-            }
-        )
-
-        if not created:
-            serializer = StudentCustomizationSerializer(customization, data=data, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data, status=status.HTTP_200_OK)
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            serializer = StudentCustomizationSerializer(customization)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 # 获取单词基本信息API
 class WordBasicListView(generics.ListAPIView):
@@ -394,9 +179,60 @@ class ImportWordsView(APIView):
         
         try:
             book = VocabularyBook.objects.get(id=book_id)
-            decoded_file = csv_file.read().decode('utf-8')
-            io_string = io.StringIO(decoded_file)
-            reader = csv.DictReader(io_string)
+            
+            # 尝试多种编码方式读取文件
+            file_content = csv_file.read()
+            decoded_file = None
+            
+            # 尝试的编码列表
+            encodings = ['utf-8', 'gbk', 'gb2312', 'utf-8-sig', 'latin1']
+            
+            for encoding in encodings:
+                try:
+                    decoded_file = file_content.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if decoded_file is None:
+                return Response(
+                    {"error": "无法解析文件编码，请确保文件是UTF-8、GBK或GB2312编码"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 预处理CSV内容，处理可能的格式问题
+            lines = decoded_file.splitlines()
+            if not lines:
+                return Response(
+                    {"error": "文件为空"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # 使用更强健的CSV解析
+            try:
+                io_string = io.StringIO(decoded_file)
+                # 设置更宽松的CSV解析选项
+                reader = csv.DictReader(
+                    io_string, 
+                    delimiter=',', 
+                    quotechar='"', 
+                    skipinitialspace=True,
+                    quoting=csv.QUOTE_MINIMAL
+                )
+                
+                # 验证表头
+                fieldnames = reader.fieldnames
+                if not fieldnames or 'word' not in fieldnames or 'chinese_meaning' not in fieldnames:
+                    return Response(
+                        {"error": "CSV文件格式错误。必须包含'word'和'chinese_meaning'列"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                    
+            except Exception as csv_error:
+                return Response(
+                    {"error": f"CSV文件格式错误: {str(csv_error)}"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             word_count = 0
             imported_words = []
@@ -407,18 +243,31 @@ class ImportWordsView(APIView):
             ).get('word_order__max') or 0
             
             for row in reader:
-                # 确保CSV文件包含所需字段
-                if 'word' not in row or 'chinese_meaning' not in row:
-                    return Response(
-                        {"error": "CSV文件格式错误。必须包含'word'和'chinese_meaning'列"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                # 跳过空行或无效数据
+                if not row.get('word') or not row.get('word').strip():
+                    continue
+                if not row.get('chinese_meaning') or not row.get('chinese_meaning').strip():
+                    continue
                 
                 # 创建或更新单词
                 max_order += 1
                 
                 # 处理词性字段
                 part_of_speech = row.get('part_of_speech', '')
+                chinese_meaning = row['chinese_meaning']
+                
+                # 构建meanings JSON结构
+                meanings = []
+                if part_of_speech and chinese_meaning:
+                    meanings.append({
+                        'pos': part_of_speech,
+                        'meaning': chinese_meaning
+                    })
+                elif chinese_meaning:
+                    meanings.append({
+                        'pos': '',
+                        'meaning': chinese_meaning
+                    })
                 
                 # 创建或更新WordBasic
                 word_basic, _ = WordBasic.objects.get_or_create(
@@ -435,10 +284,8 @@ class ImportWordsView(APIView):
                     word_basic=word_basic,
                     defaults={
                         'word_order': int(row.get('word_order')) if row.get('word_order') and row.get('word_order').strip() else max_order,
-                        'part_of_speech': part_of_speech,
-                        'chinese_meaning': row['chinese_meaning'],
+                        'meanings': meanings,
                         'example_sentence': row.get('example_sentence', ''),
-                        'difficulty_level': int(row.get('difficulty_level', 1))
                     }
                 )
                 word_count += 1
@@ -477,16 +324,23 @@ class ExportWordsView(APIView):
             response['Content-Disposition'] = f'attachment; filename="{book.name}_words.csv"'
             
             writer = csv.writer(response)
-            writer.writerow(['word', 'phonetic_symbol', 'part_of_speech', 'chinese_meaning', 'example_sentence', 'difficulty_level', 'word_order'])
+            writer.writerow(['word', 'phonetic_symbol', 'part_of_speech', 'chinese_meaning', 'example_sentence', 'word_order'])
             
             for word in words:
+                # 从meanings JSON中提取词性和释义
+                part_of_speech = ''
+                chinese_meaning = ''
+                if word.meanings and len(word.meanings) > 0:
+                    first_meaning = word.meanings[0]
+                    part_of_speech = first_meaning.get('pos', '')
+                    chinese_meaning = first_meaning.get('meaning', '')
+                
                 writer.writerow([
-                    word.word_basic.word if word.word_basic else word.word,
+                    word.word_basic.word if word.word_basic else '',
                     word.word_basic.phonetic_symbol if word.word_basic else '',
-                    word.part_of_speech,
-                    word.chinese_meaning,
-                    word.example_sentence,
-                    word.difficulty_level,
+                    part_of_speech,
+                    chinese_meaning,
+                    word.example_sentence or '',
                     word.word_order
                 ])
             
@@ -497,34 +351,7 @@ class ExportWordsView(APIView):
         except Exception as e:
             return Response({"error": f"导出失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-class WordCustomizationListView(APIView):
-    """
-    批量获取某个学生的单词自定义信息（如笔记、例句等）
-    POST body: { student_id, word_ids: [id1, id2, ...] 或 'id1,id2,...' }
-    """
-    permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request):
-        student_id = request.data.get('student_id')
-        word_ids = request.data.get('word_ids')
-        if not student_id or not word_ids:
-            return Response([], status=400)
-        # 支持前端传递数组或逗号分隔字符串
-        if isinstance(word_ids, str):
-            word_id_list = [int(i) for i in word_ids.split(',') if str(i).isdigit()]
-        else:
-            word_id_list = [int(i) for i in word_ids if isinstance(i, int) or (isinstance(i, str) and str(i).isdigit())]
-        queryset = StudentCustomization.objects.filter(student_id=student_id, word_basic_id__in=word_id_list)
-        data = [
-            {
-                "word_basic_id": sc.word_basic_id,
-                "notes": sc.notes,
-                "example_sentence": sc.example_sentence,
-                "meanings": sc.meanings,
-            }
-            for sc in queryset
-        ]
-        return Response(data)
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
@@ -548,4 +375,107 @@ def iciba_suggest(request):
         resp.raise_for_status()
         return Response(resp.json())
     except Exception as e:
-        return Response({'error': f'iciba suggest请求失败: {str(e)}'}, status=500) 
+        return Response({'error': f'iciba suggest请求失败: {str(e)}'}, status=500)
+
+class StudentKnownWordViewSet(viewsets.ModelViewSet):
+    """
+    API endpoint for students to manage their known words.
+    - POST /api/vocabulary/known-words/ (Mark word as known)
+      Body: { "student": <student_id>, "word": <word_basic_id> }
+    - GET /api/vocabulary/known-words/?student=<student_id> (List known words for a student)
+    - DELETE /api/vocabulary/known-words/unmark/ (Unmark word)
+      Body: { "student": <student_id>, "word": <word_basic_id> }
+    """
+    queryset = StudentKnownWord.objects.all()
+    serializer_class = StudentKnownWordSerializer
+    permission_classes = [permissions.IsAuthenticated] # Protect this endpoint
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        student_id = self.request.query_params.get('student')
+        if student_id:
+            # Ensure student_id is an integer before filtering
+            try:
+                student_id = int(student_id)
+                queryset = queryset.filter(student_id=student_id)
+            except ValueError:
+                # Handle invalid student_id (e.g., return empty or raise error)
+                return StudentKnownWord.objects.none()
+        
+        # 新增：按 book_id 筛选
+        book_id = self.request.query_params.get('book')
+        if book_id:
+            try:
+                book_id = int(book_id)
+                # 获取该书中的所有 word_basic_id
+                word_ids_in_book = BookWord.objects.filter(
+                    vocabulary_book_id=book_id
+                ).values_list('word_basic_id', flat=True)
+                # 筛选出在本书中的已知单词
+                queryset = queryset.filter(word_id__in=word_ids_in_book)
+            except (ValueError, TypeError):
+                return StudentKnownWord.objects.none()
+
+        return queryset
+
+    # Create is handled by ModelViewSet by default if student and word are PKs
+    # POST to /api/vocabulary/known-words/
+    # Body: { "student": <student_id>, "word": <word_id> }
+
+    @action(detail=False, methods=['delete'], url_path='unmark')
+    def unmark_word(self, request):
+        student_id = request.data.get('student')
+        word_id = request.data.get('word')
+
+        if not student_id or not word_id:
+            return Response({"error": "Student ID and Word ID are required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            student_id = int(student_id)
+            word_id = int(word_id)
+        except ValueError:
+            return Response({"error": "Invalid Student ID or Word ID."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            known_word = StudentKnownWord.objects.get(student_id=student_id, word_id=word_id)
+            known_word.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except StudentKnownWord.DoesNotExist:
+            return Response({"error": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ProxyYoudaoPronunciationView(APIView):
+    """代理有道词典发音请求，解决跨域问题"""
+    
+    def get(self, request):
+        word = request.GET.get('word', '')
+        if not word:
+            return JsonResponse({'error': 'Word parameter is required'}, status=400)
+        
+        # 将所有非字母和非空格的字符替换为空格
+        word = re.sub(r'[^a-zA-Z\s]', ' ', word)
+        # 去掉多余的空格（例如多个空格变成一个空格）
+        word = re.sub(r'\s+', ' ', word).strip()
+        
+        if not word:
+            return JsonResponse({'error': 'Word parameter is invalid after formatting'}, status=400)
+        
+        try:
+            youdao_url = f'https://dict.youdao.com/dictvoice?audio={word}'
+            response = requests.get(youdao_url, timeout=10)
+            
+            if response.status_code == 200:
+                return HttpResponse(
+                    response.content,
+                    content_type=response.headers.get('Content-Type', 'audio/mpeg')
+                )
+            else:
+                return JsonResponse(
+                    {'error': f'Failed to fetch pronunciation: {response.status_code}'},
+                    status=response.status_code
+                )
+        except requests.exceptions.Timeout:
+            return JsonResponse({'error': 'Request timeout'}, status=504)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500) 

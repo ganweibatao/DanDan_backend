@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import LearningPlan, LearningUnit, UnitReview
+from .models import LearningPlan, LearningUnit, UnitReview, WordLearningStage
 
 @admin.register(LearningPlan)
 class LearningPlanAdmin(admin.ModelAdmin):
@@ -20,4 +20,18 @@ class UnitReviewAdmin(admin.ModelAdmin):
     list_display = ('learning_unit', 'review_date', 'review_order', 'is_completed', 'completed_at', 'created_at', 'updated_at')
     search_fields = ('learning_unit__learning_plan__student__user__username',)
     list_filter = ('is_completed', 'review_date', 'review_order')
-    readonly_fields = ('created_at', 'updated_at') 
+    readonly_fields = ('created_at', 'updated_at')
+
+
+@admin.register(WordLearningStage)
+class WordLearningStageAdmin(admin.ModelAdmin):
+    list_display = ('learning_plan', 'book_word', 'current_stage', 'start_date', 'last_reviewed_at', 'next_review_date', 'created_at')
+    search_fields = ('learning_plan__student__user__username', 'book_word__word')
+    list_filter = ('current_stage', 'start_date', 'next_review_date')
+    readonly_fields = ('created_at', 'updated_at')
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related(
+            'learning_plan__student__user', 
+            'book_word'
+        )

@@ -22,6 +22,18 @@ class UserDurationLog(models.Model):
     )
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, verbose_name='类型')
     duration = models.PositiveIntegerField(verbose_name='时长（秒）')
+    # 新增：本次新学单词数量
+    word_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='本次新学单词数'
+    )
+    # 新增：本次错误 / 未掌握单词数量
+    wrong_word_count = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name='本次错误单词数'
+    )
     client_start_time = models.DateTimeField(null=True, blank=True, verbose_name='前端开始时间')
     client_end_time = models.DateTimeField(null=True, blank=True, verbose_name='前端结束时间')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='入库时间')

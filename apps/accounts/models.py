@@ -45,6 +45,7 @@ class Teacher(Profile):
     ]
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
+    real_name = models.CharField(max_length=50, blank=True, verbose_name='真实姓名')
     title = models.CharField(max_length=100, blank=True)  # 职称
     specialties = models.CharField(max_length=200, blank=True)  # 专长领域
     university = models.CharField(max_length=200, blank=True)  # 毕业院校
@@ -56,8 +57,6 @@ class Teacher(Profile):
     major = models.CharField(max_length=100, blank=True)  # 专业方向
     work_status = models.CharField(max_length=50, choices=WORK_STATUS_CHOICES, blank=True)  # 工作状态
     available_time = models.TextField(blank=True)  # 可授课时间段
-    emergency_contact = models.CharField(max_length=100, blank=True)  # 紧急联系人
-    emergency_contact_phone = models.CharField(max_length=20, blank=True)  # 紧急联系人电话
     english_level = models.CharField(max_length=50, choices=ENGLISH_LEVEL_CHOICES, blank=True)  # 英语水平
     age = models.PositiveIntegerField(null=True, blank=True)  # 年龄
     province = models.CharField(max_length=50, blank=True)  # 省份
@@ -123,3 +122,18 @@ class StudentTeacherRelationship(models.Model):
         
     def __str__(self):
         return f"{self.student.user.username} - {self.teacher.user.username}" 
+
+class EmailVerificationCode(models.Model):
+    """邮箱验证码"""
+    email = models.EmailField(verbose_name='邮箱地址')
+    code = models.CharField(max_length=6, verbose_name='验证码')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    expires_at = models.DateTimeField(verbose_name='过期时间')
+    is_used = models.BooleanField(default=False, verbose_name='是否已使用')
+    
+    class Meta:
+        verbose_name = '邮箱验证码'
+        verbose_name_plural = '邮箱验证码'
+        
+    def __str__(self):
+        return f"{self.email} - {self.code}" 
