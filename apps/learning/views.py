@@ -5,12 +5,15 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db import transaction
 import threading
-from .models import LearningPlan, LearningUnit, UnitReview, WordLearningStage
+from django.db.models import Q, Prefetch
+from datetime import timedelta
+from .models import LearningPlan, WordLearningStage
 from .serializers import (
-    LearningPlanSerializer, LearningUnitSerializer, UnitReviewSerializer,
-    WordStageSerializer, WordLearningStageSerializer
+    LearningPlanSerializer,
+    WordLearningStageSerializer, WordStageSerializer
 )
 from apps.accounts.models import Student, Teacher
+from apps.vocabulary.models import BookWord
 
 
 class LearningPlanViewSet(viewsets.ModelViewSet):
@@ -159,56 +162,163 @@ class LearningPlanViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['get'])
     def available_words(self, request, pk=None):
-        """获取词汇书中可用于学习的单词列表"""
+        """获取词汇书中可用于学习的单词列表，并标记已有学习记录或学生已认识的单词。"""
         learning_plan = self.get_object()
+        student = learning_plan.student
+
+        # 获取分页参数
+        limit = request.query_params.get('limit')
+        offset = request.query_params.get('offset', '0')
         
-        # 获取词汇书中的所有单词
-        from apps.vocabulary.models import BookWord
-        all_words = BookWord.objects.filter(
-            vocabulary_book=learning_plan.vocabulary_book
-        ).select_related('word_basic').order_by('order', 'id')
-        
+        try:
+            offset = int(offset)
+        except (ValueError, TypeError):
+            offset = 0
+            
+        try:
+            limit = int(limit) if limit is not None else None
+        except (ValueError, TypeError):
+            limit = None
+
         # 获取已创建学习阶段的单词ID
         existing_stage_word_ids = set(
             WordLearningStage.objects.filter(learning_plan=learning_plan)
             .values_list('book_word_id', flat=True)
         )
         
-        # 构建返回数据
+        # 获取学生已认识的单词的 WordBasic ID
+        known_word_basic_ids = set()
+        if student:
+            from apps.vocabulary.models import StudentKnownWord
+            known_word_basic_ids = set(
+                StudentKnownWord.objects.filter(student=student)
+                .values_list('word_id', flat=True)
+            )
+
+        # 获取词汇书中的所有单词（用于计算总数）
+        from apps.vocabulary.models import BookWord
+        all_words_query = BookWord.objects.filter(
+            vocabulary_book=learning_plan.vocabulary_book
+        ).select_related('word_basic').order_by('word_order', 'id')
+        
+        # 计算总数
+        total_count = all_words_query.count()
+        
+        # 筛选出可用于学习的单词（没有学习记录且不是已知单词）
+        available_words_query = all_words_query.exclude(
+            id__in=existing_stage_word_ids  # 排除已有学习阶段记录的单词
+        ).exclude(
+            word_basic_id__in=known_word_basic_ids  # 排除学生已认识的单词
+        )
+        
+        # 计算可用单词总数
+        available_total_count = available_words_query.count()
+        
+        # 应用分页（只对可用单词分页）
+        if limit is not None:
+            words_to_process = available_words_query[offset:offset + limit]
+        else:
+            words_to_process = available_words_query[offset:] if offset > 0 else available_words_query
+        
+        # 构建返回数据（所有返回的单词都是可学习的）
         words_data = []
-        for word in all_words:
+        for word in words_to_process:
             word_data = {
                 'id': word.id,
-                'word': word.word_basic.word if word.word_basic else 'Unknown',
-                'translation': word.translation,
-                'pronunciation': word.pronunciation,
-                'order': word.order,
-                'has_stage': word.id in existing_stage_word_ids
+                'word': word.effective_word,
+                'meaning': word.effective_meanings,
+                'phonetic': word.effective_phonetic,
+                'word_order': word.word_order,
+                'word_basic_id': word.word_basic.id if word.word_basic else None,  # 添加word_basic_id字段
+                'has_stage': False,  # 筛选后的单词都没有学习记录
+                'is_known': False    # 筛选后的单词都不是已知单词
             }
             words_data.append(word_data)
         
+        known_in_book_count = BookWord.objects.filter(
+            vocabulary_book=learning_plan.vocabulary_book, 
+            word_basic_id__in=known_word_basic_ids
+        ).count()
+
         return Response({
             'words': words_data,
-            'total_count': len(words_data),
-            'staged_count': len(existing_stage_word_ids)
+            'total_count': available_total_count,  # 返回可用单词的总数，而不是所有单词的总数
+            'all_words_count': total_count,  # 添加词书中所有单词的总数
+            'staged_count': len(existing_stage_word_ids),
+            'known_in_book_count': known_in_book_count,
         })
     
     @action(detail=True, methods=['get'])
     def words_stages(self, request, pk=None):
-        """获取学习计划中所有单词的学习阶段信息"""
+        """获取学习计划中所有单词的学习阶段信息，并自动将符合条件的stage 0单词推进到stage 1"""
+        import logging
+        import pytz
+        logger = logging.getLogger('django')
+        
         learning_plan = self.get_object()
         
-        # 获取今天的日期，用于筛选可复习的单词
-        today = timezone.now().date()
+        # 获取北京时间的今日日期，用于检查和更新
+        beijing_tz = pytz.timezone('Asia/Shanghai')
+        beijing_now = timezone.now().astimezone(beijing_tz)
+        today = beijing_now.date()
+        logger.info(f"words_stages 开始处理，学习计划ID: {learning_plan.id}, UTC时间: {timezone.now()}, 北京时间: {beijing_now}, 北京日期: {today}")
         
-        # 获取所有单词阶段
+        # 自动推进stage 0到stage 1的逻辑
+        with transaction.atomic():
+            # 获取所有stage 0的单词
+            stage_0_words = WordLearningStage.objects.filter(
+                learning_plan=learning_plan,
+                current_stage=0
+            ).select_related('book_word')
+            
+            logger.info(f"找到 {stage_0_words.count()} 个stage 0的单词需要检查")
+            
+            updated_count = 0
+            for word_stage in stage_0_words:
+                # 详细日志记录每个单词的检查过程
+                start_date = word_stage.start_date
+                if start_date:
+                    should_advance_date = start_date + timedelta(days=1)
+                    should_advance = today >= should_advance_date
+                    
+                    if should_advance:
+                        # 推进到stage 1
+                        word_stage.current_stage = 1
+                        word_stage.last_reviewed_at = timezone.now()
+                        
+                        # 计算下次复习日期 (stage 1间隔1天)
+                        word_stage.next_review_date = today + timedelta(days=WordLearningStage.STAGE_INTERVALS[1])
+                        word_stage.save()
+                        
+                        updated_count += 1
+                    else:
+                        logger.info(f"✗ 单词 '{word_stage.book_word.effective_word}' 暂不推进")
+            
+            if updated_count > 0:
+                logger.info(f"自动推进了 {updated_count} 个单词从stage 0到stage 1")
+            else:
+                logger.info("没有单词需要推进")
+        
+        # 获取所有单词阶段（包括刚刚更新的）
         word_stages = WordLearningStage.objects.filter(
             learning_plan=learning_plan
         ).select_related('book_word').order_by('book_word__word_order', 'book_word__id')
         
         # 序列化数据
         serializer = WordStageSerializer(word_stages, many=True)
-        return Response(serializer.data)
+        
+        response_data = serializer.data
+        if updated_count > 0:
+            # 在响应中添加更新信息
+            return Response({
+                'words': response_data,
+                'auto_advanced': {
+                    'count': updated_count,
+                    'message': f'自动推进了 {updated_count} 个单词从新学阶段到第1轮复习'
+                }
+            })
+        else:
+            return Response(response_data)
     
     @action(detail=True, methods=['post'])
     def advance_word_stage(self, request, pk=None):
@@ -296,59 +406,5 @@ class LearningPlanViewSet(viewsets.ModelViewSet):
         })
 
 
-class LearningUnitViewSet(viewsets.ModelViewSet):
-    """学习单元视图集"""
-    serializer_class = LearningUnitSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        """根据用户类型和学习计划过滤单元"""
-        user = self.request.user
-        learning_plan_id = self.request.query_params.get('learning_plan_id')
-        
-        base_queryset = LearningUnit.objects.all()
-        
-        if learning_plan_id:
-            base_queryset = base_queryset.filter(learning_plan_id=learning_plan_id)
-        
-        if hasattr(user, 'student'):
-            # 学生只能看到自己学习计划的单元
-            return base_queryset.filter(learning_plan__student=user.student)
-        elif hasattr(user, 'teacher'):
-            # 教师只能看到自己创建的学习计划的单元
-            return base_queryset.filter(learning_plan__teacher=user.teacher)
-        else:
-            return LearningUnit.objects.none()
 
-
-class UnitReviewViewSet(viewsets.ModelViewSet):
-    """单元复习视图集"""
-    serializer_class = UnitReviewSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        """根据用户类型和学习单元过滤复习记录"""
-        user = self.request.user
-        learning_unit_id = self.request.query_params.get('learning_unit_id')
-        
-        base_queryset = UnitReview.objects.all()
-        
-        if learning_unit_id:
-            base_queryset = base_queryset.filter(learning_unit_id=learning_unit_id)
-        
-        if hasattr(user, 'student'):
-            # 学生只能看到自己学习计划的复习记录
-            return base_queryset.filter(learning_unit__learning_plan__student=user.student)
-        elif hasattr(user, 'teacher'):
-            # 教师只能看到自己创建的学习计划的复习记录
-            return base_queryset.filter(learning_unit__learning_plan__teacher=user.teacher)
-        else:
-            return UnitReview.objects.none()
-    
-    @action(detail=True, methods=['post'])
-    def mark_completed(self, request, pk=None):
-        """标记复习为完成"""
-        review = self.get_object()
-        review.is_completed = True
-        review.save()
-        return Response({'status': 'completed'}) 
+ 

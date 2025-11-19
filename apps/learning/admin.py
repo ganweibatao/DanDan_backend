@@ -1,34 +1,28 @@
 from django.contrib import admin
-from .models import LearningPlan, LearningUnit, UnitReview, WordLearningStage
+from .models import LearningPlan, WordLearningStage
 
 @admin.register(LearningPlan)
 class LearningPlanAdmin(admin.ModelAdmin):
-    list_display = ('student', 'teacher', 'vocabulary_book', 'words_per_day', 'start_date', 'is_active', 'created_at', 'updated_at')
+    list_display = ('id', 'student', 'teacher', 'vocabulary_book', 'start_date', 'is_active', 'created_at', 'updated_at')
+    list_filter = ('is_active', 'teacher', 'vocabulary_book')
     search_fields = ('student__user__username', 'teacher__user__username', 'vocabulary_book__name')
-    list_filter = ('is_active', 'teacher', 'start_date')
+    ordering = ('-created_at',)
     readonly_fields = ('created_at', 'updated_at')
-
-@admin.register(LearningUnit)
-class LearningUnitAdmin(admin.ModelAdmin):
-    list_display = ('learning_plan', 'unit_number', 'start_word_order', 'end_word_order', 'expected_learn_date', 'is_learned', 'learned_at', 'created_at', 'updated_at')
-    search_fields = ('learning_plan__student__user__username',)
-    list_filter = ('is_learned', 'expected_learn_date')
-    readonly_fields = ('created_at', 'updated_at')
-
-@admin.register(UnitReview)
-class UnitReviewAdmin(admin.ModelAdmin):
-    list_display = ('learning_unit', 'review_date', 'review_order', 'is_completed', 'completed_at', 'created_at', 'updated_at')
-    search_fields = ('learning_unit__learning_plan__student__user__username',)
-    list_filter = ('is_completed', 'review_date', 'review_order')
-    readonly_fields = ('created_at', 'updated_at')
-
 
 @admin.register(WordLearningStage)
 class WordLearningStageAdmin(admin.ModelAdmin):
-    list_display = ('learning_plan', 'book_word', 'current_stage', 'start_date', 'last_reviewed_at', 'next_review_date', 'created_at')
-    search_fields = ('learning_plan__student__user__username', 'book_word__word')
+    list_display = ('get_word', 'get_plan_id', 'learning_plan', 'current_stage', 'start_date', 'next_review_date', 'last_reviewed_at')
     list_filter = ('current_stage', 'start_date', 'next_review_date')
-    readonly_fields = ('created_at', 'updated_at')
+    search_fields = ('book_word__word_basic__word', 'learning_plan__student__user__username')
+    ordering = ('-updated_at',)
+    
+    def get_word(self, obj):
+        return obj.book_word.word_basic.word if obj.book_word and obj.book_word.word_basic else "Unknown Word"
+    get_word.short_description = '单词'
+    
+    def get_plan_id(self, obj):
+        return obj.learning_plan.id if obj.learning_plan else None
+    get_plan_id.short_description = 'Plan ID'
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related(

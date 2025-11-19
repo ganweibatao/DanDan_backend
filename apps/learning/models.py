@@ -10,7 +10,6 @@ class LearningPlan(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='learning_plans')
     teacher = models.ForeignKey(Teacher, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_learning_plans', verbose_name='负责老师')
     vocabulary_book = models.ForeignKey(VocabularyBook, on_delete=models.CASCADE, related_name='learning_plans')
-    words_per_day = models.IntegerField(verbose_name='每日新单词量')
     start_date = models.DateField(verbose_name='计划开始日期')
     is_active = models.BooleanField(default=False, verbose_name='是否为当前正在学习的计划')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -29,53 +28,6 @@ class LearningPlan(models.Model):
     def __str__(self):
         teacher_info = f" supervised by {self.teacher.user.username}" if self.teacher else ""
         return f"{self.student.user.username}'s plan for {self.vocabulary_book.name}{teacher_info}"
-
-class LearningUnit(models.Model):
-    """学习单元表"""
-    learning_plan = models.ForeignKey(LearningPlan, on_delete=models.CASCADE, related_name='units')
-    unit_number = models.IntegerField()
-    start_word_order = models.IntegerField()
-    end_word_order = models.IntegerField()
-    expected_learn_date = models.DateField()
-    is_learned = models.BooleanField(default=False)
-    learned_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = '学习单元'
-        verbose_name_plural = '学习单元'
-        db_table = 'learning_units'
-        indexes = [
-            models.Index(fields=['learning_plan', 'unit_number'], name='idx_plan_unit'),
-            models.Index(fields=['expected_learn_date'], name='idx_learn_date')
-        ]
-    
-    def __str__(self):
-        return f"Unit {self.unit_number} of {self.learning_plan}"
-
-class UnitReview(models.Model):
-    """单元复习记录表"""
-    learning_unit = models.ForeignKey(LearningUnit, on_delete=models.CASCADE, related_name='reviews')
-    review_date = models.DateField(verbose_name='艾宾浩斯计划复习日期')
-    review_order = models.IntegerField(verbose_name='第几次复习(1-5)')
-    is_completed = models.BooleanField(default=False, verbose_name='是否已完成')
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name='完成时间')
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        verbose_name = '单元复习记录'
-        verbose_name_plural = '单元复习记录'
-        db_table = 'unit_reviews'
-        unique_together = ['learning_unit', 'review_order']
-        indexes = [
-            models.Index(fields=['review_date'], name='idx_review_date')
-        ]
-    
-    def __str__(self):
-        return f"Review {self.review_order} of {self.learning_unit}"
-
 
 class WordLearningStage(models.Model):
     """单词学习阶段表 - 基于艾宾浩斯遗忘曲线的单词学习进度"""
@@ -107,20 +59,32 @@ class WordLearningStage(models.Model):
     
     def advance_stage(self):
         """将单词推进到下一个学习阶段"""
+        # 正常阶段推进（0-4 -> 1-5）
         if self.current_stage < 5:
             self.current_stage += 1
             self.last_reviewed_at = timezone.now()
             
+            # 计算下次复习日期（stage 5 之后还有 7 天复习）
             if self.current_stage < len(self.STAGE_INTERVALS):
-                # 计算下次复习日期
                 interval_days = self.STAGE_INTERVALS[self.current_stage]
                 self.next_review_date = timezone.now().date() + timedelta(days=interval_days)
             else:
-                # 已完成所有阶段
+                # 理论上不会进入该分支，因为 len(STAGE_INTERVALS) == 6
                 self.next_review_date = None
             
             self.save()
             return True
+
+        # 最终阶段复习完成：stage 5 -> stage 6 (已掌握)
+        elif self.current_stage == 5:
+            # 标记为已掌握
+            self.current_stage = 6
+            self.last_reviewed_at = timezone.now()
+            self.next_review_date = None  # 不再安排复习
+            self.save()
+            return True
+
+        # 已经是 stage 6（熟词），不再推进
         return False
     
     def is_ready_for_review(self, today=None):
@@ -144,7 +108,8 @@ class WordLearningStage(models.Model):
         if book_words is None:
             book_words = learning_plan.vocabulary_book.words.all()
         
-        start_date = learning_plan.start_date
+        # 使用当前日期作为新学开始日期，避免因学习计划创建过早导致单词立即进入复习阶段
+        start_date = timezone.now().date()
         
         # 检查已存在的记录，避免重复创建
         existing_word_ids = set(

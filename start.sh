@@ -11,7 +11,7 @@ pip install gunicorn
 # 使用Gunicorn启动Django应用，使用多个工作进程，添加--reload参数实现代码变更自动重启
 # 添加--capture-output参数将标准输出和错误重定向到访问日志中
 # 添加--access-logfile参数指定访问日志文件
-nohup gunicorn --bind 0.0.0.0:8000 --workers 4 --reload --capture-output --access-logfile=log/access.log englishlearning.wsgi:application > log/gunicorn.log 2>&1 &
+nohup gunicorn -c gunicorn_conf.py englishlearning.wsgi:application > log/gunicorn.log 2>&1 &
 
 echo "Gunicorn服务已在后台启动，进程ID: $!"
 echo "查看Gunicorn启动日志请使用: tail -f log/gunicorn.log"

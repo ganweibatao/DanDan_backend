@@ -5,11 +5,12 @@ from apps.accounts.models import Student
 
 class VocabularyBookSerializer(serializers.ModelSerializer):
     word_count = serializers.IntegerField(read_only=True)
+    created_by = serializers.PrimaryKeyRelatedField(read_only=True)
     
     class Meta:
         model = VocabularyBook
-        fields = ['id', 'name', 'word_count', 'is_system_preset', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'name', 'word_count', 'is_system_preset', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'created_by']
 
 class WordBasicSerializer(serializers.ModelSerializer):
     class Meta:
@@ -223,3 +224,95 @@ class StudentKnownWordSerializer(serializers.ModelSerializer):
         # Prevent duplicate entries
         instance, created = StudentKnownWord.objects.get_or_create(**validated_data)
         return instance
+
+class StudentKnownWordDetailSerializer(serializers.ModelSerializer):
+    """返回已知单词详细信息的序列化器"""
+    word_text = serializers.CharField(source='word.word', read_only=True)
+    phonetic = serializers.CharField(source='word.phonetic_symbol', read_only=True)
+    uk_pronunciation = serializers.CharField(source='word.uk_pronunciation', read_only=True)
+    us_pronunciation = serializers.CharField(source='word.us_pronunciation', read_only=True)
+    
+    # 从对应词书中获取释义信息
+    meaning = serializers.SerializerMethodField()
+    part_of_speech = serializers.SerializerMethodField()
+    example_sentence = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = StudentKnownWord
+        fields = ['id', 'student', 'word', 'word_text', 'phonetic', 'uk_pronunciation', 
+                 'us_pronunciation', 'meaning', 'part_of_speech', 'example_sentence', 'marked_at']
+        read_only_fields = ['marked_at']
+    
+    def get_meaning(self, obj):
+        """从词书中获取释义"""
+        book_id = self.context.get('book_id')
+        if book_id:
+            try:
+                book_word = BookWord.objects.filter(
+                    vocabulary_book_id=book_id,
+                    word_basic=obj.word
+                ).first()
+                if book_word:
+                    meaning_obj = self._get_first_meaning_obj(book_word)
+                    if meaning_obj and 'meaning' in meaning_obj:
+                        return meaning_obj['meaning']
+            except Exception:
+                pass
+        return None
+    
+    def get_part_of_speech(self, obj):
+        """从词书中获取词性"""
+        book_id = self.context.get('book_id')
+        if book_id:
+            try:
+                book_word = BookWord.objects.filter(
+                    vocabulary_book_id=book_id,
+                    word_basic=obj.word
+                ).first()
+                if book_word:
+                    meaning_obj = self._get_first_meaning_obj(book_word)
+                    if meaning_obj and 'pos' in meaning_obj:
+                        return meaning_obj['pos']
+            except:
+                pass
+        return None
+    
+    def get_example_sentence(self, obj):
+        """从词书中获取例句"""
+        book_id = self.context.get('book_id')
+        if book_id:
+            try:
+                book_word = BookWord.objects.filter(
+                    vocabulary_book_id=book_id,
+                    word_basic=obj.word
+                ).first()
+                if book_word:
+                    return book_word.example_sentence
+            except:
+                pass
+        return None
+    
+    def _get_first_meaning_obj(self, book_word):
+        """获取第一个meaning对象的辅助方法"""
+        effective_meanings = book_word.effective_meanings
+        if not effective_meanings:
+            return None
+        try:
+            # 确保我们处理的是Python对象，而不是JSON字符串
+            if isinstance(effective_meanings, str):
+                try:
+                    data_to_parse = json.loads(effective_meanings)
+                except json.JSONDecodeError:
+                    # 如果解析失败，返回None
+                    return None
+            else:
+                data_to_parse = effective_meanings
+
+            # 检查是否是有效的列表格式
+            if isinstance(data_to_parse, list) and len(data_to_parse) > 0:
+                first_meaning_obj = data_to_parse[0]
+                if isinstance(first_meaning_obj, dict):
+                    return first_meaning_obj
+            return None
+        except (TypeError, IndexError, AttributeError):
+            return None
