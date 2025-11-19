@@ -51,12 +51,23 @@ class VocabularyBookViewSet(viewsets.ModelViewSet):
     """
     API端点，允许词汇书籍查看或编辑
     """
-    queryset = VocabularyBook.objects.all()
     serializer_class = VocabularyBookSerializer
     permission_classes = [permissions.IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name']
     ordering_fields = ['name', 'word_count', 'created_at']
+    
+    def get_queryset(self):
+        """获取当前用户的自定义词库和系统预设词库"""
+        user = self.request.user
+        return VocabularyBook.objects.filter(
+            models.Q(is_system_preset=True) |  # 系统预设词库
+            models.Q(created_by=user)          # 用户自己创建的词库
+        ).order_by('name')
+    
+    def perform_create(self, serializer):
+        """创建词库时自动设置创建者"""
+        serializer.save(created_by=self.request.user)
     
     @action(detail=False, methods=['get'])
     def system_presets(self, request):
@@ -101,7 +112,100 @@ class BookWordViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
         except Exception as e:
             return Response({"error": f"获取单词失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], url_path='batch')
+    def get_words_by_texts(self, request):
+        """
+        通过单词文本批量查询词书中对应的单词详情
+        POST /api/vocabulary/book-words/batch/
+        Body: {
+            "book_id": 1,
+            "word_texts": ["encourage", "retire", "cheerful", ...]
+        }
+        """
+        book_id = request.data.get('book_id')
+        word_texts = request.data.get('word_texts', [])
+        
+        if not book_id:
+            return Response({"error": "请提供book_id参数"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not word_texts or not isinstance(word_texts, list):
+            return Response({"error": "请提供word_texts数组参数"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if len(word_texts) > 100:  # 限制批量查询数量
+            return Response({"error": "单次查询单词数量不能超过100个"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # 验证词书是否存在
+            vocabulary_book = get_object_or_404(VocabularyBook, id=book_id)
+            
+            # 通过单词文本查询对应的单词详情
+            words = BookWord.objects.filter(
+                vocabulary_book_id=book_id,
+                word_basic__word__in=word_texts,
+                word_basic__isnull=False
+            ).select_related('word_basic', 'vocabulary_book').order_by('word_order')
+            
+            # 序列化返回数据
+            serializer = self.get_serializer(words, many=True)
+            
+            return Response({
+                "words": serializer.data,
+                "total_requested": len(word_texts),
+                "total_found": words.count()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+                         return Response({
+                 "error": f"批量查询单词失败: {str(e)}"
+             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class BookWordBatchQueryView(APIView):
+    """
+    批量查询词书中单词详情的独立视图
+    POST /api/vocabulary/books/{book_id}/words/batch/
+    """
+    permission_classes = [permissions.IsAuthenticated]
     
+    def post(self, request, book_id):
+        """
+        通过单词文本批量查询词书中对应的单词详情
+        Body: {
+            "word_texts": ["encourage", "retire", "cheerful", ...]
+        }
+        """
+        word_texts = request.data.get('word_texts', [])
+        
+        if not word_texts or not isinstance(word_texts, list):
+            return Response({"error": "请提供word_texts数组参数"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if len(word_texts) > 1000:  # 限制批量查询数量
+            return Response({"error": "单次查询单词数量不能超过100个"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # 验证词书是否存在
+            vocabulary_book = get_object_or_404(VocabularyBook, id=book_id)
+            
+            # 通过单词文本查询对应的单词详情
+            words = BookWord.objects.filter(
+                vocabulary_book_id=book_id,
+                word_basic__word__in=word_texts,
+                word_basic__isnull=False
+            ).select_related('word_basic', 'vocabulary_book').order_by('word_order')
+            
+            # 序列化返回数据
+            serializer = BookWordSerializer(words, many=True)
+            
+            return Response({
+                "words": serializer.data,
+                "total_requested": len(word_texts),
+                "total_found": words.count()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                "error": f"批量查询单词失败: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 
@@ -114,9 +218,16 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 # 词库书籍列表API
 class VocabularyBookListView(generics.ListAPIView):
-    queryset = VocabularyBook.objects.all().order_by('name')
     serializer_class = VocabularyBookSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """获取当前用户的自定义词库和系统预设词库"""
+        user = self.request.user
+        return VocabularyBook.objects.filter(
+            models.Q(is_system_preset=True) |  # 系统预设词库
+            models.Q(created_by=user)          # 用户自己创建的词库
+        ).order_by('name')
 
 # 词库书籍详情API
 class VocabularyBookDetailView(generics.RetrieveAPIView):
@@ -133,7 +244,11 @@ class BookWordListView(generics.ListAPIView):
 
     def get_queryset(self):
         book_id = self.kwargs['book_id']
-        return BookWord.objects.filter(vocabulary_book_id=book_id).order_by('word_order').select_related('word_basic')
+        # 确保包含word_basic关联，并过滤掉没有word_basic的记录
+        return BookWord.objects.filter(
+            vocabulary_book_id=book_id,
+            word_basic__isnull=False  # 确保word_basic存在
+        ).order_by('word_order').select_related('word_basic')
 
 # 词库单词详情API
 class BookWordDetailView(generics.RetrieveAPIView):
@@ -382,41 +497,97 @@ class StudentKnownWordViewSet(viewsets.ModelViewSet):
     API endpoint for students to manage their known words.
     - POST /api/vocabulary/known-words/ (Mark word as known)
       Body: { "student": <student_id>, "word": <word_basic_id> }
-    - GET /api/vocabulary/known-words/?student=<student_id> (List known words for a student)
+    - GET /api/vocabulary/known-words/?student=<student_id> (List all known words for a student)
+    - GET /api/vocabulary/known-words/?student=<student_id>&book=<book_id> (List all known words with details for a student in a book)
     - DELETE /api/vocabulary/known-words/unmark/ (Unmark word)
       Body: { "student": <student_id>, "word": <word_basic_id> }
     """
     queryset = StudentKnownWord.objects.all()
     serializer_class = StudentKnownWordSerializer
     permission_classes = [permissions.IsAuthenticated] # Protect this endpoint
+    pagination_class = None  # 禁用分页，一次性返回所有数据
+
+    def get_serializer_class(self):
+        """根据是否有book参数选择不同的序列化器"""
+        book_id = self.request.query_params.get('book')
+        if book_id and self.action == 'list':
+            from .serializers import StudentKnownWordDetailSerializer
+            return StudentKnownWordDetailSerializer
+        return self.serializer_class
+
+    def get_serializer_context(self):
+        """传递book_id到序列化器context"""
+        context = super().get_serializer_context()
+        book_id = self.request.query_params.get('book')
+        if book_id:
+            try:
+                context['book_id'] = int(book_id)
+            except (ValueError, TypeError):
+                pass
+        return context
 
     def get_queryset(self):
         queryset = super().get_queryset()
         student_id = self.request.query_params.get('student')
-        if student_id:
-            # Ensure student_id is an integer before filtering
-            try:
-                student_id = int(student_id)
-                queryset = queryset.filter(student_id=student_id)
-            except ValueError:
-                # Handle invalid student_id (e.g., return empty or raise error)
-                return StudentKnownWord.objects.none()
         
-        # 新增：按 book_id 筛选
+        if not student_id:
+            return StudentKnownWord.objects.none()
+            
+        # 确保student_id是有效整数
+        try:
+            student_id = int(student_id)
+        except ValueError:
+            return StudentKnownWord.objects.none()
+        
+        # 基础查询：按学生筛选
+        queryset = queryset.filter(student_id=student_id)
+        
+        # 按词书筛选（如果提供了book参数）
         book_id = self.request.query_params.get('book')
         if book_id:
             try:
                 book_id = int(book_id)
-                # 获取该书中的所有 word_basic_id
-                word_ids_in_book = BookWord.objects.filter(
-                    vocabulary_book_id=book_id
-                ).values_list('word_basic_id', flat=True)
-                # 筛选出在本书中的已知单词
-                queryset = queryset.filter(word_id__in=word_ids_in_book)
+                # 性能优化：使用exists子查询而不是values_list + __in
+                queryset = queryset.filter(
+                    word_id__in=BookWord.objects.filter(
+                        vocabulary_book_id=book_id
+                    ).values_list('word_basic_id', flat=True)
+                )
             except (ValueError, TypeError):
                 return StudentKnownWord.objects.none()
 
-        return queryset
+        # 性能优化：预加载相关数据
+        return queryset.select_related('student', 'word').order_by('-marked_at')
+
+    def list(self, request, *args, **kwargs):
+        """重写list方法，添加性能监控和数据量检查"""
+        import time
+        start_time = time.time()
+        
+        queryset = self.filter_queryset(self.get_queryset())
+        
+        # 数据量检查，防止返回过多数据
+        count = queryset.count()
+        if count > 10000:  # 如果超过1万条记录，建议使用分页
+            return Response({
+                "error": "数据量过大，请联系管理员优化查询条件",
+                "count": count
+            }, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        
+        end_time = time.time()
+        response_data = {
+            "count": count,
+            "results": serializer.data
+        }
+        
+        # 添加性能信息到响应头
+        response = Response(response_data)
+        response['X-Query-Time'] = f"{(end_time - start_time):.3f}s"
+        response['X-Result-Count'] = str(count)
+        
+        return response
 
     # Create is handled by ModelViewSet by default if student and word are PKs
     # POST to /api/vocabulary/known-words/
@@ -444,6 +615,63 @@ class StudentKnownWordViewSet(viewsets.ModelViewSet):
             return Response({"error": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    # --- NEW: 批量标记已掌握单词 ---
+    @action(detail=False, methods=['post'], url_path='mark-batch')
+    def mark_batch(self, request):
+        """批量将单词标记为已掌握，不影响原有单条 POST 接口。\n
+        请求体示例：{ "student": 10, "word_ids": [1,2,3] } 或 { "student": 10, "words": [1,2,3] }"""
+
+        student_id = request.data.get('student')
+        word_ids = request.data.get('word_ids') or request.data.get('words')
+
+        # 基本校验
+        if not student_id or not isinstance(word_ids, (list, tuple)) or not word_ids:
+            return Response(
+                {"error": "需要提供 student 以及非空的 word_ids 列表"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            student_id = int(student_id)
+        except (ValueError, TypeError):
+            return Response({"error": "student 参数必须是整数"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 过滤掉无法转换的 word_id
+        valid_word_ids = []
+        for wid in word_ids:
+            try:
+                valid_word_ids.append(int(wid))
+            except (ValueError, TypeError):
+                pass
+
+        if not valid_word_ids:
+            return Response({"error": "word_ids 列表中没有有效的整数ID"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 去重
+        valid_word_ids = list(set(valid_word_ids))
+
+        # 查询已存在的记录，避免重复创建
+        existing_ids = set(
+            StudentKnownWord.objects.filter(student_id=student_id, word_id__in=valid_word_ids)
+            .values_list('word_id', flat=True)
+        )
+
+        to_create_ids = [wid for wid in valid_word_ids if wid not in existing_ids]
+
+        created_objects = [
+            StudentKnownWord(student_id=student_id, word_id=wid) for wid in to_create_ids
+        ]
+
+        # 批量创建
+        StudentKnownWord.objects.bulk_create(created_objects, ignore_conflicts=True)
+
+        return Response({
+            "success": True,
+            "student": student_id,
+            "created_count": len(created_objects),
+            "skipped_existing": list(existing_ids),
+        }, status=status.HTTP_201_CREATED)
 
 class ProxyYoudaoPronunciationView(APIView):
     """代理有道词典发音请求，解决跨域问题"""

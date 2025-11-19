@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render, redirect
 from django.contrib import messages
+from django.utils.html import format_html
 from django.db.models import Max, Q
 import csv
 import io
@@ -47,25 +48,176 @@ class WordBasicAdmin(admin.ModelAdmin):
 
 class BookWordInline(admin.TabularInline):
     model = BookWord
-    extra = 1
-    fields = ('word_basic', 'word_order', 'meanings', 'example_sentence')
+    extra = 0  # 不显示额外的空白表单
+    fields = ('get_word_display', 'word_order', 'get_meanings_display')
+    readonly_fields = ('get_word_display', 'word_order', 'get_meanings_display')  # 设为只读，避免意外修改
+    max_num = 20  # 最多显示20个单词
+    can_delete = False  # 禁止在此处删除单词
+    show_change_link = True  # 显示"更改"链接，可以跳转到单词详情页面
+    verbose_name = "单词预览"
+    verbose_name_plural = "单词预览（仅显示前20个）"
+    
+    def get_queryset(self, request):
+        """限制查询集，只显示前20个单词，按word_order排序"""
+        qs = super().get_queryset(request)
+        # 不能在这里使用切片，因为Django admin会在后面继续过滤
+        return qs.select_related('word_basic').order_by('word_order')
+    
+    def get_max_num(self, request, obj=None, **kwargs):
+        """动态设置最大显示数量"""
+        return 20
+    
+    def get_word_display(self, obj):
+        """显示有效单词"""
+        return obj.effective_word
+    get_word_display.short_description = '单词'
+    
+    def get_meanings_display(self, obj):
+        """显示释义的简化版本"""
+        if obj.meanings:
+            # 只显示前2个释义，避免内容过长
+            meanings_list = obj.meanings[:2] if isinstance(obj.meanings, list) else []
+            if meanings_list:
+                return '; '.join([f"{m.get('part_of_speech', '')} {', '.join(m.get('chinese_meanings', [])[:2])}" for m in meanings_list])
+        return obj.custom_meanings or '-'
+    get_meanings_display.short_description = '释义（部分）'
 
 @admin.register(VocabularyBook)
 class VocabularyBookAdmin(admin.ModelAdmin):
-    list_display = ('name', 'word_count', 'is_system_preset', 'created_at', 'updated_at')
+    list_display = ('id', 'name', 'word_count', 'is_system_preset', 'created_at', 'updated_at')
     list_filter = ('is_system_preset',)
-    search_fields = ('name',)
+    search_fields = ('name', 'id')
     ordering = ('name',)
-    readonly_fields = ('created_at', 'updated_at')
-    inlines = [BookWordInline]
+    readonly_fields = ('created_at', 'updated_at', 'view_all_words_link')
+    # 移除内联显示，提升页面加载速度
+    # inlines = [BookWordInline]
+    
+    fieldsets = (
+        ('基本信息', {
+            'fields': ('name', 'word_count', 'is_system_preset')
+        }),
+        ('单词管理', {
+            'fields': ('view_all_words_link',),
+            'description': '此书籍不在详情页面显示单词列表以提升加载速度。点击下方按钮查看和管理此书籍的所有单词。'
+        }),
+        ('系统信息', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def view_all_words_link(self, obj):
+        """显示查看所有单词的链接"""
+        if obj and obj.pk:
+            url = f'/admin/vocabulary/bookword/?vocabulary_book__id__exact={obj.pk}'
+            return format_html('<a href="{}" target="_blank" class="button">查看所有单词 ({}个)</a>', url, obj.word_count)
+        return '-'
+    view_all_words_link.short_description = '单词管理'
+    
+    # 移除get_form方法，因为不再需要内联显示提示
+    
+    def delete_model(self, request, obj):
+        """优化单个书籍删除性能"""
+        from django.db import transaction, connection
+        from apps.learning.models import LearningPlan, WordLearningStage
+        import time
+        
+        start_time = time.time()
+        
+        with transaction.atomic():
+            # 使用原生SQL批量删除，避免ORM的逐条删除 - 使用PostgreSQL兼容的语法
+            with connection.cursor() as cursor:
+                # 1. 删除单词学习阶段（通过学习计划关联）
+                cursor.execute("""
+                    DELETE FROM word_learning_stages 
+                    WHERE learning_plan_id IN (
+                        SELECT id FROM learning_plans WHERE vocabulary_book_id = %s
+                    )
+                """, [obj.id])
+                stages_deleted = cursor.rowcount
+                
+                # 2. 删除学习计划
+                cursor.execute("""
+                    DELETE FROM learning_plans WHERE vocabulary_book_id = %s
+                """, [obj.id])
+                plans_deleted = cursor.rowcount
+                
+                # 3. 删除书籍单词
+                cursor.execute("""
+                    DELETE FROM book_words WHERE vocabulary_book_id = %s
+                """, [obj.id])
+                words_deleted = cursor.rowcount
+                
+                # 4. 删除书籍本身
+                cursor.execute("""
+                    DELETE FROM vocabulary_books WHERE id = %s
+                """, [obj.id])
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        self.message_user(
+            request, 
+            f"成功删除书籍 '{obj.name}' 及其相关数据！"
+            f"删除了 {words_deleted} 个单词，{plans_deleted} 个学习计划，{stages_deleted} 个学习阶段。"
+            f"耗时: {duration:.2f} 秒",
+            level=messages.SUCCESS
+        )
+    
+    def delete_queryset(self, request, queryset):
+        """优化批量删除性能"""
+        from django.db import transaction, connection
+        import time
+        
+        start_time = time.time()
+        book_names = [book.name for book in queryset]
+        book_ids = [book.id for book in queryset]
+        
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                # 批量删除所有相关数据 - 使用PostgreSQL兼容的语法
+                cursor.execute("""
+                    DELETE FROM word_learning_stages 
+                    WHERE learning_plan_id IN (
+                        SELECT id FROM learning_plans WHERE vocabulary_book_id IN %s
+                    )
+                """, [tuple(book_ids)])
+                stages_deleted = cursor.rowcount
+                
+                cursor.execute("""
+                    DELETE FROM learning_plans WHERE vocabulary_book_id IN %s
+                """, [tuple(book_ids)])
+                plans_deleted = cursor.rowcount
+                
+                cursor.execute("""
+                    DELETE FROM book_words WHERE vocabulary_book_id IN %s
+                """, [tuple(book_ids)])
+                words_deleted = cursor.rowcount
+                
+                cursor.execute("""
+                    DELETE FROM vocabulary_books WHERE id IN %s
+                """, [tuple(book_ids)])
+        
+        end_time = time.time()
+        duration = end_time - start_time
+        
+        self.message_user(
+            request,
+            f"成功批量删除 {len(queryset)} 本书籍：{', '.join(book_names)}！"
+            f"删除了 {words_deleted} 个单词，{plans_deleted} 个学习计划，{stages_deleted} 个学习阶段。"
+            f"耗时: {duration:.2f} 秒",
+            level=messages.SUCCESS
+        )
 
 @admin.register(BookWord)
 class BookWordAdmin(admin.ModelAdmin):
-    list_display = ('get_word', 'vocabulary_book', 'word_order', 'is_customized')
+    list_display = ('get_word', 'get_book_info', 'word_order', 'is_customized')
     list_filter = ('vocabulary_book', CustomizedFilter)
-    search_fields = ('word_basic__word', 'custom_word', 'example_sentence')
+    search_fields = ('word_basic__word', 'custom_word', 'example_sentence', 'vocabulary_book__id')
     ordering = ('vocabulary_book', 'word_order')
     readonly_fields = ('created_at', 'updated_at', 'is_customized')
+    list_per_page = 50  # 每页显示50条记录，减少单页字段数量
+    list_max_show_all = 200  # 限制"显示全部"的最大数量
     
     fieldsets = (
         ('基础信息', {
@@ -87,6 +239,13 @@ class BookWordAdmin(admin.ModelAdmin):
     def get_word(self, obj):
         return obj.effective_word
     get_word.short_description = '有效单词'
+    
+    def get_book_info(self, obj):
+        """显示词汇书ID和名称"""
+        if obj.vocabulary_book:
+            return f"ID:{obj.vocabulary_book.id} - {obj.vocabulary_book.name}"
+        return "未关联词汇书"
+    get_book_info.short_description = '词汇书 (ID-名称)'
     
     def is_customized(self, obj):
         return obj.is_customized

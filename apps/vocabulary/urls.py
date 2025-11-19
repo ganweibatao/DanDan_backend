@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from . import views
 from .views import (
     VocabularyBookViewSet, BookWordViewSet, 
-
+    BookWordBatchQueryView,
     StudentKnownWordViewSet,
     ProxyYoudaoPronunciationView
 )
@@ -20,6 +20,7 @@ urlpatterns = [
     # path('books/', views.VocabularyBookListView.as_view(), name='vocabulary-book-list'),
     # path('books/<int:pk>/', views.VocabularyBookDetailView.as_view(), name='vocabulary-book-detail'),
     path('books/<int:book_id>/words/', views.BookWordListView.as_view(), name='book-word-list'),
+    path('books/<int:book_id>/words/batch/', views.BookWordBatchQueryView.as_view(), name='book-word-batch'),
     
     # 单词相关
     path('words/<int:pk>/', views.BookWordDetailView.as_view(), name='book-word-detail'),

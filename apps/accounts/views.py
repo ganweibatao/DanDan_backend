@@ -33,7 +33,7 @@ import datetime
 from django.utils import timezone
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-# from utils.email_service import EmailService  # 暂时注释掉
+from utils.email_service import EmailService
 
 # 获取日志记录器
 logger = logging.getLogger('django')

@@ -108,12 +108,20 @@ CORS_ALLOW_CREDENTIALS = True  # 允许发送 Cookie
 CORS_ALLOWED_ORIGINS = [
     "http://111.229.186.241",
     "http://localhost:5173",
+    "https://www.egglittle.cn",
+    "https://egglittle.cn",
+    "https://www.eggbaby.online",
+    "https://eggbaby.online",
 ]
 # 更新 CSRF 信任的前端源
 CSRF_TRUSTED_ORIGINS = [
     "http://111.229.186.241",
     "http://111.229.186.241:8000",
     "http://localhost:5173",
+    "https://www.egglittle.cn",
+    "https://egglittle.cn",
+    "https://www.eggbaby.online",
+    "https://eggbaby.online",
 ]
 
 # 添加或修改这一部分
@@ -275,6 +283,10 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# 数据上传限制设置
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # 增加字段数量限制，默认为1000
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB，增加内存限制
+
 # Cache settings
 CACHES = {
     'default': {
@@ -310,9 +322,10 @@ LOGGING = {
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            # 仅写入 django.log 文件，避免同时输出到 Gunicorn 的 stdout
+            'handlers': ['file'],
             'level': 'INFO',
-            'propagate': True,
+            'propagate': False,  # 禁止向上冒泡，防止日志重复到 gunicorn.log
         },
         'django.request': {
             'handlers': ['console', 'file'],

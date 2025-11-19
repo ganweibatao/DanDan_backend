@@ -7,6 +7,14 @@ class VocabularyBook(models.Model):
     name = models.CharField(max_length=100, default='新词汇书', verbose_name='书名')
     word_count = models.IntegerField(default=0, verbose_name='词汇量')
     is_system_preset = models.BooleanField(default=False, verbose_name='是否为系统预设书籍')
+    created_by = models.ForeignKey(
+        User, 
+        on_delete=models.CASCADE, 
+        related_name='created_vocabulary_books',
+        verbose_name='创建者',
+        null=True,  # 允许为空，以便迁移现有数据
+        blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     

@@ -1,55 +1,14 @@
 from rest_framework import serializers
-from .models import LearningPlan, LearningUnit, UnitReview, WordLearningStage
+from .models import LearningPlan, WordLearningStage
 from apps.vocabulary.serializers import VocabularyBookSerializer, BookWordSerializer
 from apps.accounts.serializers import TeacherSerializer, StudentSerializer
 from apps.accounts.models import Student
 from apps.vocabulary.models import BookWord
 
-class UnitReviewSerializer(serializers.ModelSerializer):
-    """单元复习序列化器"""
-    class Meta:
-        model = UnitReview
-        fields = [
-            'id', 'learning_unit', 'review_date', 'review_order', 
-            'is_completed', 'completed_at', 'created_at', 'updated_at'
-        ]
 
-# 为矩阵视图添加精简版复习序列化器
-class EbinghausReviewSerializer(serializers.ModelSerializer):
-    """艾宾浩斯矩阵专用的精简复习序列化器"""
-    class Meta:
-        model = UnitReview
-        fields = ['id', 'review_order', 'is_completed']
-
-class LearningUnitSerializer(serializers.ModelSerializer):
-    """学习单元序列化器"""
-    reviews = UnitReviewSerializer(many=True, read_only=True)
-    words = BookWordSerializer(many=True, read_only=True, required=False)
-    
-    class Meta:
-        model = LearningUnit
-        fields = [
-            'id', 'learning_plan', 'unit_number', 'start_word_order', 
-            'end_word_order', 'expected_learn_date', 'is_learned', 
-            'learned_at', 'created_at', 'updated_at', 'reviews',
-            'words'
-        ]
-
-# 为矩阵视图添加精简版学习单元序列化器
-class EbinghausUnitSerializer(serializers.ModelSerializer):
-    """艾宾浩斯矩阵专用的精简学习单元序列化器"""
-    reviews = EbinghausReviewSerializer(many=True, read_only=True)
-    
-    class Meta:
-        model = LearningUnit
-        fields = [
-            'id', 'unit_number', 'start_word_order', 'end_word_order',
-            'is_learned', 'learned_at', 'reviews'
-        ]
 
 class LearningPlanSerializer(serializers.ModelSerializer):
     """学习计划序列化器"""
-    units = LearningUnitSerializer(many=True, read_only=True)
     vocabulary_book = VocabularyBookSerializer(read_only=True)
     vocabulary_book_id = serializers.IntegerField(write_only=True)
     teacher = TeacherSerializer(read_only=True)
@@ -66,37 +25,14 @@ class LearningPlanSerializer(serializers.ModelSerializer):
         model = LearningPlan
         fields = [
             'id', 'student', 'student_id', 'teacher', 'teacher_id', 'vocabulary_book', 'vocabulary_book_id',
-            'words_per_day', 'start_date', 'is_active', 'created_at', 'updated_at', 'units',
+            'start_date', 'is_active', 'created_at', 'updated_at',
             'student_details', 'total_days', 'progress'
         ]
-        read_only_fields = ['teacher', 'vocabulary_book', 'created_at', 'updated_at', 'units']
+        read_only_fields = ['teacher', 'vocabulary_book', 'created_at', 'updated_at']
 
     def to_representation(self, instance):
         """自定义返回格式，优化返回数据"""
         rep = super().to_representation(instance)
-        
-        # 检查上下文，决定是否包含详细单元信息
-        include_detailed_units = self.context.get('include_detailed_units', False)
-        is_for_matrix = self.context.get('is_for_matrix', False)
-        
-        if is_for_matrix:
-            # 如果是为矩阵视图优化，使用精简的单元序列化器
-            units = instance.units
-            # 兼容 manager/list
-            if hasattr(units, 'all'):
-                units = units.all()
-            rep['units'] = EbinghausUnitSerializer(units, many=True).data
-        elif not include_detailed_units and 'units' in rep and rep['units']:
-            # 如果不要求详细单元，且存在单元数据，则进行汇总
-            unit_count = len(rep['units'])
-            learned_count = sum(1 for unit in rep['units'] if unit.get('is_learned', False)) # 使用 .get() 更安全
-            rep['units_summary'] = {
-                'total': unit_count,
-                'learned': learned_count,
-                'remaining': unit_count - learned_count
-            }
-            rep.pop('units') # 移除详细单元列表
-        # 如果 include_detailed_units 为 True，则不执行任何操作，保留完整的 units 字段
         
         # 确保 teacher_id 不会出现在只读的表示中
         if 'teacher_id' in rep:
@@ -132,19 +68,20 @@ class LearningPlanSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def get_total_days(self, obj):
-        # Calculate total_days based on word_count and words_per_day
-        if obj.vocabulary_book and obj.words_per_day > 0:
+        # 简化计算，不再依赖words_per_day
+        if obj.vocabulary_book:
             word_count = obj.vocabulary_book.word_count or 0
-            return (word_count + obj.words_per_day - 1) // obj.words_per_day # Ceiling division
+            # 假设平均每天学习30个新单词
+            return (word_count + 29) // 30  # Ceiling division
         return 0
 
     def get_progress(self, obj):
-        # Example progress calculation: percentage of learned units
-        total_units = LearningUnit.objects.filter(learning_plan=obj).count()
-        if total_units == 0:
+        # 基于单词学习阶段计算进度
+        total_stages = WordLearningStage.objects.filter(learning_plan=obj).count()
+        if total_stages == 0:
             return 0.0
-        learned_units = LearningUnit.objects.filter(learning_plan=obj, is_learned=True).count()
-        return round((learned_units / total_units) * 100, 2)
+        completed_stages = WordLearningStage.objects.filter(learning_plan=obj, current_stage=5).count()
+        return round((completed_stages / total_stages) * 100, 2)
 
 
 class WordStageHistorySerializer(serializers.Serializer):
@@ -161,13 +98,14 @@ class WordStageSerializer(serializers.ModelSerializer):
     phonetic = serializers.CharField(source='book_word.effective_phonetic', read_only=True)
     startDate = serializers.DateField(source='start_date', read_only=True)
     currentStage = serializers.IntegerField(source='current_stage', read_only=True)
+    nextReviewDate = serializers.DateField(source='next_review_date', read_only=True)
     stageHistory = serializers.SerializerMethodField()
     
     class Meta:
         model = WordLearningStage
         fields = [
             'bookWordId', 'word', 'meaning', 'phonetic', 'startDate', 
-            'currentStage', 'stageHistory'
+            'currentStage', 'nextReviewDate', 'stageHistory'
         ]
     
     def get_stageHistory(self, obj):
